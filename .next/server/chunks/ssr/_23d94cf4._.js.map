@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/tanma/OneDrive/Desktop/Competetion/Team_Vasudha/src/app/layout.js"],"sourcesContent":["import Navbar from \"@/components/utils/Navbar\";\r\nimport \"./globals.css\";\r\n\r\nexport const metadata = {\r\n  title: \"Soil Monitoring System\",\r\n  description:\r\n    \"Monitor soil and give recommendation for crop, fertilizers and more...\",\r\n};\r\n\r\nexport default function RootLayout({ children }) {\r\n  return (\r\n    <html lang=\"en\">\r\n      <body>\r\n        <Navbar />\r\n        {children}\r\n      </body>\r\n    </html>\r\n  );\r\n}"],"names":[],"mappings":";;;;;;;;;;;;;;;;;;;;AAGO,MAAM,WAAW;IACtB,OAAO;IACP,aACE;AACJ;AAEe,SAAS,WAAW,EAAE,QAAQ,EAAE;IAC7C,qBACE,8OAAC;QAAK,MAAK;kBACT,cAAA,8OAAC;;8BACC,8OAAC;;;;;gBACA;;;;;;;;;;;;AAIT","debugId":null}},
+    {"offset": {"line": 55, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/tanma/OneDrive/Desktop/Competetion/Team_Vasudha/node_modules/next/src/server/route-modules/app-page/vendored/rsc/react-jsx-dev-runtime.ts"],"sourcesContent":["module.exports = (\n  require('../../module.compiled') as typeof import('../../module.compiled')\n).vendored['react-rsc']!.ReactJsxDevRuntime\n"],"names":["module","exports","require","vendored","ReactJsxDevRuntime"],"mappings":"AAAAA,OAAOC,OAAO,GACZC,QAAQ,4HACRC,QAAQ,CAAC,YAAY,CAAEC,kBAAkB","ignoreList":[0],"debugId":null}}]
+}

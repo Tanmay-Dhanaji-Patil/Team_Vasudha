@@ -9,8 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import DropdownMenuRadioGroupDemo from "@/components/utils/DropdownMenuRadioGroupDemo";
-import ValueChart from "@/components/utils/ValueChart";
+import DropdownMenuRadioGroupDemo from "@/components/utils/DropdownMenu";
+import ValueChart from "@/components/utils/ValueCharts";
 import { TimeSeriesChart, ThreeDAreaChart, SoilHealthRadar, NutrientPieChart } from "@/components/utils/AdvancedCharts";
 import { SoilHealthGauge, SoilHeatmap, CombinedChart } from "@/components/utils/InteractiveCharts";
 import { useState, useEffect } from "react";
