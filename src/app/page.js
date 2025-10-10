@@ -7,6 +7,131 @@ import ChartsContainer from "@/components/utils/ChartsContainer";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 
+// Send Report Button Component
+function SendReportButton({ samples }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailStatus, setEmailStatus] = useState('');
+
+  const handleSendReport = async () => {
+    setIsLoading(true);
+    setEmailStatus('');
+
+    try {
+      // Group samples by crop for analysis
+      const cropGroups = {};
+      samples.forEach(sample => {
+        if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
+        cropGroups[sample.crop].push(sample);
+      });
+
+      // Calculate total costs
+      const cropOptions = [
+        { name: "Wheat", values: { nitrogen: 90, phosphorous: 45, potassium: 45, temperature: 25, moisture: 15, ph: 7.0 } },
+        { name: "Rice", values: { nitrogen: 110, phosphorous: 50, potassium: 60, temperature: 28, moisture: 20, ph: 6.5 } },
+        { name: "Maize", values: { nitrogen: 80, phosphorous: 40, potassium: 50, temperature: 24, moisture: 12, ph: 6.8 } },
+      ];
+      
+      const getStandardValues = (cropName) => cropOptions.find(c => c.name === cropName)?.values || cropOptions[0].values;
+      const prices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
+      
+      let totalCost = 0;
+      Object.entries(cropGroups).forEach(([cropName, cropSamples]) => {
+        const std = getStandardValues(cropName);
+        let cropNitrogen = 0, cropPhosphorous = 0, cropPotassium = 0;
+        cropSamples.forEach(sample => {
+          cropNitrogen += Math.max(0, std.nitrogen - sample.nitrogen);
+          cropPhosphorous += Math.max(0, std.phosphorous - sample.phosphorous);
+          cropPotassium += Math.max(0, std.potassium - sample.potassium);
+        });
+        totalCost += cropNitrogen * prices.nitrogen + cropPhosphorous * prices.phosphorous + cropPotassium * prices.potassium;
+      });
+
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          samples,
+          cropGroups,
+          totalCost,
+          reportData: {
+            totalSamples: samples.length,
+            crops: Object.keys(cropGroups),
+            generatedDate: new Date().toISOString()
+          }
+        }),
+      });
+
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Check if response has content before parsing JSON
+      const text = await response.text();
+      if (!text) {
+        throw new Error('Empty response from server');
+      }
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Failed to parse JSON:', text);
+        throw new Error('Invalid JSON response from server');
+      }
+
+      if (result.success) {
+        setEmailStatus(`✅ Success! Report sent to ${result.emails.length} email(s): ${result.emails.join(', ')}`);
+      } else {
+        setEmailStatus(`❌ Error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending report:', error);
+      setEmailStatus(`❌ Error: Failed to send report. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <Button 
+        className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${
+          isLoading 
+            ? 'bg-gray-400 cursor-not-allowed' 
+            : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
+        } text-white font-semibold`}
+        onClick={handleSendReport}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Sending Report...
+          </>
+        ) : (
+          '📧 Send Report'
+        )}
+      </Button>
+      
+      {emailStatus && (
+        <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${
+          emailStatus.includes('Success') 
+            ? 'bg-green-100 text-green-800 border border-green-200' 
+            : 'bg-red-100 text-red-800 border border-red-200'
+        }`}>
+          {emailStatus}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Chart for each sample input
 function SampleBarChart({ sample, standard }) {
   // Prepare chart data
@@ -46,7 +171,9 @@ export default function Home() {
     password: '', 
     confirmPassword: '', 
     name: '', 
-    location: '' 
+    location: '',
+    email: '',
+    phoneNumber: ''
   });
   const [user, setUser] = useState(null);
 
@@ -60,7 +187,7 @@ export default function Home() {
 
   // State for all samples entered by user
   const [samples, setSamples] = useState([]);
-  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '' });
+  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '', email: '' });
   const [finished, setFinished] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState(cropOptions[0].name);
 
@@ -85,9 +212,10 @@ export default function Home() {
       potassium: Number(form.potassium),
       temperature: Number(form.temperature),
       moisture: Number(form.moisture),
-      ph: Number(form.ph)
+      ph: Number(form.ph),
+      email: form.email
     }]);
-    setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '' });
+    setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '', email: '' });
   };
 
   // Handle authentication form changes
@@ -97,14 +225,22 @@ export default function Home() {
   };
 
   // Handle login/signup
-  const handleAuth = (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
-    const { username, password, confirmPassword, name, location } = authForm;
+    const { username, password, confirmPassword, name, location, email, phoneNumber } = authForm;
     
     if (isSignUpMode) {
       // Sign-up validation
       if (!name.trim()) {
         alert('Please enter your name!');
+        return;
+      }
+      if (!email.trim()) {
+        alert('Please enter your email!');
+        return;
+      }
+      if (!phoneNumber.trim()) {
+        alert('Please enter your phone number!');
         return;
       }
       if (!location.trim()) {
@@ -123,26 +259,75 @@ export default function Home() {
         alert('Password must be at least 6 characters long!');
         return;
       }
-      // For demo, we'll accept any valid sign-up and log them in
-      setIsAuthenticated(true);
-      setUser({ 
-        username: name.toLowerCase().replace(/\s+/g, ''), 
-        name: name,
-        location: location 
-      });
-      setShowAuthForm(false);
-      setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
-      setIsSignUpMode(false);
-      alert(`Account created successfully! Welcome ${name}!`);
+
+      try {
+        // Call registration API
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            email: email.trim(),
+            password: password,
+            location: location.trim(),
+            phoneNumber: phoneNumber.trim()
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setIsAuthenticated(true);
+          setUser(result.user);
+          setShowAuthForm(false);
+          setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '', email: '', phoneNumber: '' });
+          setIsSignUpMode(false);
+          alert(`Account created successfully! Welcome ${result.user.name}!`);
+        } else {
+          alert(`Registration failed: ${result.message}`);
+        }
+      } catch (error) {
+        console.error('Registration error:', error);
+        alert('Registration failed. Please try again.');
+      }
     } else {
-      // Login validation - check for crop/crop1234
-      if (username === 'crop' && password === 'crop1234') {
-        setIsAuthenticated(true);
-        setUser({ username: 'crop', name: 'Crop User', location: 'Demo Farm' });
-        setShowAuthForm(false);
-        setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
-      } else {
-        alert('Invalid credentials! Use username: crop, password: crop1234');
+      // Login validation
+      if (!username.trim() || !password.trim()) {
+        alert('Please enter both username and password!');
+        return;
+      }
+
+      try {
+        // For demo user, use email-based login
+        const loginEmail = username === 'crop' ? 'crop@demo.com' : username;
+        
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: loginEmail,
+            password: password
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setIsAuthenticated(true);
+          setUser(result.user);
+          setShowAuthForm(false);
+          setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '', email: '', phoneNumber: '' });
+          alert(`Welcome back, ${result.user.name}!`);
+        } else {
+          alert(`Login failed: ${result.message}`);
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('Login failed. Please try again.');
       }
     }
   };
@@ -156,7 +341,7 @@ export default function Home() {
   // Toggle between login and sign-up
   const toggleAuthMode = () => {
     setIsSignUpMode(!isSignUpMode);
-    setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
+    setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '', email: '', phoneNumber: '' });
   };
 
   // If user is authenticated, show the dashboard
@@ -240,6 +425,36 @@ export default function Home() {
                     />
                   </div>
                   <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={authForm.email}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter your email address"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      value={authForm.phoneNumber}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter your phone number"
+                      required
+                    />
+                  </div>
+                  <div>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                       Password
                     </label>
@@ -273,17 +488,17 @@ export default function Home() {
               ) : (
                 <>
                   <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                      Username
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
                     </label>
                     <input
-                      type="text"
-                      id="username"
+                      type="email"
+                      id="email"
                       name="username"
                       value={authForm.username}
                       onChange={handleAuthFormChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter username (crop)"
+                      placeholder="Enter email (crop@demo.com)"
                       required
                     />
                   </div>
@@ -340,7 +555,7 @@ export default function Home() {
               <div className="mt-4 p-3 bg-gray-50 rounded-md">
                 <p className="text-xs text-gray-600 text-center">
                   <strong>Demo Credentials:</strong><br />
-                  Username: <code>crop</code><br />
+                  Email: <code>crop@demo.com</code><br />
                   Password: <code>crop1234</code>
                 </p>
               </div>
@@ -375,6 +590,7 @@ export default function Home() {
                 </select>
               </div>
               <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
+              <input name="email" type="email" value={form.email} onChange={handleFormChange} placeholder="Email for report" className="border rounded px-4 py-2" required />
               <input name="nitrogen" type="number" value={form.nitrogen} onChange={handleFormChange} placeholder="Nitrogen" className="border rounded px-4 py-2" required />
               <input name="phosphorous" type="number" value={form.phosphorous} onChange={handleFormChange} placeholder="Phosphorous" className="border rounded px-4 py-2" required />
               <input name="potassium" type="number" value={form.potassium} onChange={handleFormChange} placeholder="Potassium" className="border rounded px-4 py-2" required />
@@ -387,8 +603,13 @@ export default function Home() {
               </div>
             </form>
             {samples.length > 0 && (
-              <div className="mt-2 text-lg text-green-700 font-semibold">
-                {samples.length} sample(s) added.
+              <div className="mt-4">
+                <div className="text-lg text-green-700 font-semibold mb-3">
+                  {samples.length} sample(s) added.
+                </div>
+                <div className="flex justify-center">
+                  <SendReportButton samples={samples} />
+                </div>
               </div>
             )}
           </div>
@@ -469,7 +690,7 @@ export default function Home() {
         })()}
 
         {/* Overall summary table for all crops and samples */}
-        {finished && (() => {
+  {finished && (() => {
           // Group samples by crop
           const cropGroups = {};
           samples.forEach(sample => {
@@ -537,6 +758,19 @@ export default function Home() {
         })()}
 
         {/* Advanced Analytics Dashboard */}
+        {/* Prompt to send report via email */}
+        {finished && samples.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8 text-center">
+            <h3 className="text-xl font-bold text-blue-700 mb-2">Send Report via Email</h3>
+            <p className="mb-4">Would you like to send the comprehensive soil analysis report to the following email(s)?</p>
+            <div className="mb-4 flex flex-wrap gap-2 justify-center">
+              {samples.map((s, idx) => (
+                <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{s.email}</span>
+              ))}
+            </div>
+            <SendReportButton samples={samples} />
+          </div>
+        )}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
             Advanced Analytics Dashboard
