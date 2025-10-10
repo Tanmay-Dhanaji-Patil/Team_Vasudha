@@ -1,281 +1,396 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import DropdownMenuRadioGroupDemo from "@/components/utils/DropdownMenu";
-import ValueChart from "@/components/utils/ValueCharts";
-import { TimeSeriesChart, ThreeDAreaChart, SoilHealthRadar, NutrientPieChart } from "@/components/utils/AdvancedCharts";
-import { SoilHealthGauge, SoilHeatmap, CombinedChart } from "@/components/utils/InteractiveCharts";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import Dashboard from "@/components/utils/Dashboard";
+import ValueChart from "@/components/utils/ValueChart";
+import ChartsContainer from "@/components/utils/ChartsContainer";
+import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Button } from "@/components/ui/button";
 
+// Chart for each sample input
+function SampleBarChart({ sample, standard }) {
+  // Prepare chart data
 const chartData = [
-  { month: "Nitrogen", desktop: 125, mobile: 0 },
-  { month: "Phosphorous", desktop: 55, mobile: 0 },
-  { month: "Potassium", desktop: 135, mobile: 0 },
-  { month: "Temperature", desktop: 32, mobile: 0 },
-  { month: "Moisture", desktop: 7, mobile: 0 },
-  { month: "Soil pH", desktop: 60, mobile: 0 },
-];
-
-const standardValues = [
-  {
-    name: "Sugarcane",
-    values: {
-      Nitrogen: 125,
-      Phosphorous: 55,
-      Potassium: 135,
-      Temperature: 32,
-      "Soil pH": 7.0,
-      Moisture: 60,
-    },
-  },
-  {
-    name: "Wheat",
-    values: {
-      Nitrogen: 105,
-      Phosphorous: 55,
-      Potassium: 65,
-      Temperature: 25,
-      "Soil pH": 6.2,
-      Moisture: 25,
-    },
-  },
-  {
-    name: "Rice",
-    values: {
-      Nitrogen: 90,
-      Phosphorous: 45,
-      Potassium: 55,
-      Temperature: 31,
-      "Soil pH": 6.0,
-      Moisture: 70,
-    },
-  },
-  {
-    name: "Sorghum",
-    values: {
-      Nitrogen: 90,
-      Phosphorous: 45,
-      Potassium: 45,
-      Temperature: 33,
-      "Soil pH": 6.5,
-      Moisture: 30,
-    },
-  },
-  {
-    name: "Groundnut",
-    values: {
-      Nitrogen: 40,
-      Phosphorous: 60,
-      Potassium: 40,
-      Temperature: 22,
-      "Soil pH": 6.3,
-      Moisture: 35,
-    },
-  },
-];
+    { name: "Nit", Standard: standard.nitrogen, Observed: sample.nitrogen },
+    { name: "Pho", Standard: standard.phosphorous, Observed: sample.phosphorous },
+    { name: "Pot", Standard: standard.potassium, Observed: sample.potassium },
+    { name: "Tem", Standard: standard.temperature, Observed: sample.temperature },
+    { name: "Moi", Standard: standard.moisture, Observed: sample.moisture },
+    { name: "Soi", Standard: standard.ph, Observed: sample.ph },
+  ];
+  return (
+    <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-white/20 shadow p-6 mb-6" style={{ width: 500, height: 350 }}>
+      <div className="text-center font-bold mb-4 text-gray-900 dark:text-white text-xl">Sample: {sample.day}</div>
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={chartData} barCategoryGap={30} barGap={12}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" fontSize={16} />
+          <YAxis fontSize={16} />
+          <Tooltip />
+          <Legend wrapperStyle={{ fontSize: '16px' }} />
+          <Bar dataKey="Standard" fill="#fbb02d" radius={[12, 12, 0, 0]} />
+          <Bar dataKey="Observed" fill="#10B981" radius={[12, 12, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 export default function Home() {
-  const [sensorData, setSensorData] = useState(null);
-  const [currCrop, setCurrCrop] = useState("Sugarcane");
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showAuthForm, setShowAuthForm] = useState(false);
+  const [authForm, setAuthForm] = useState({ username: '', password: '' });
+  const [user, setUser] = useState(null);
 
-  const nitro_rate = 7;
-  const phos_rate = 8;
-  const potas_rate = 19;
+  // Crop options and their standard values
+  const cropOptions = [
+    { name: "Wheat", values: { nitrogen: 90, phosphorous: 45, potassium: 45, temperature: 25, moisture: 15, ph: 7.0 } },
+    { name: "Rice", values: { nitrogen: 110, phosphorous: 50, potassium: 60, temperature: 28, moisture: 20, ph: 6.5 } },
+    { name: "Maize", values: { nitrogen: 80, phosphorous: 40, potassium: 50, temperature: 24, moisture: 12, ph: 6.8 } },
+    // Add more crops as needed
+  ];
 
-  // Check if sensorData is available before accessing it
-  const nitro_diff = sensorData
-    ? findDeference(chartData[0]["desktop"], sensorData[0])
-    : 0;
-  const phos_diff = sensorData
-    ? findDeference(chartData[1]["desktop"], sensorData[1])
-    : 0;
-  const potas_diff = sensorData
-    ? findDeference(chartData[2]["desktop"], sensorData[2])
-    : 0;
+  // State for all samples entered by user
+  const [samples, setSamples] = useState([]);
+  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '' });
+  const [finished, setFinished] = useState(false);
+  const [selectedCrop, setSelectedCrop] = useState(cropOptions[0].name);
 
-  const nitro_cost = nitro_diff * nitro_rate;
-  const phos_cost = phos_diff * phos_rate;
-  const potas_cost = potas_diff * potas_rate;
+  // Get standard values for selected crop
+  const getStandardValues = (cropName) => cropOptions.find(c => c.name === cropName)?.values || cropOptions[0].values;
 
-  useEffect(() => {
-    async function fetchData() {
-      const urls = [
-        "https://blynk.cloud/external/api/get?token=HD7FULD1O_gX37a_-UxvVPS4Y1XupTki&V1", // * nitrogen
-        "https://blynk.cloud/external/api/get?token=HD7FULD1O_gX37a_-UxvVPS4Y1XupTki&v2", // *  phosphorous
-        "https://blynk.cloud/external/api/get?token=HD7FULD1O_gX37a_-UxvVPS4Y1XupTki&v3", // * potassium
-        "https://blynk.cloud/external/api/get?token=HD7FULD1O_gX37a_-UxvVPS4Y1XupTki&v4", // * temperature
-        "https://blynk.cloud/external/api/get?token=HD7FULD1O_gX37a_-UxvVPS4Y1XupTki&v0", // * moisture
-        "https://blynk.cloud/external/api/get?token=HD7FULD1O_gX37a_-UxvVPS4Y1XupTki&v5", // * pH
-      ];
-      try {
-        const responses = await Promise.all(urls.map((url) => fetch(url)));
-        const data = await Promise.all(
-          responses.map((response) => response.json())
-        );
+  // Handle form input change
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
-        // Process the data to ensure we have numeric values
-        const processedData = data.map((item, index) => {
-          // If the response is an object with an error property, handle it
-          if (typeof item === 'object' && item !== null) {
-            if ('error' in item) {
-              console.warn(`API error for sensor ${index}:`, item.error);
-              return 0; // Return default value
-            }
-            // If it's an object but not an error, try to extract the value
-            if ('value' in item) {
-              return parseFloat(item.value) || 0;
-            }
-            // If it's just a plain object, try to convert to number
-            return parseFloat(item) || 0;
-          }
-          // If it's already a primitive, ensure it's a number
-          return parseFloat(item) || 0;
-        });
+  // Handle form submit to add sample
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (!form.day) return;
+    setSamples((prev) => [...prev, {
+      day: form.day,
+      crop: form.crop,
+      nitrogen: Number(form.nitrogen),
+      phosphorous: Number(form.phosphorous),
+      potassium: Number(form.potassium),
+      temperature: Number(form.temperature),
+      moisture: Number(form.moisture),
+      ph: Number(form.ph)
+    }]);
+    setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '' });
+  };
 
-        chartData[0]["mobile"] = processedData[0];
-        chartData[1]["mobile"] = processedData[1];
-        chartData[2]["mobile"] = processedData[2];
-        chartData[3]["mobile"] = processedData[3];
-        chartData[4]["mobile"] = processedData[4];
-        chartData[5]["mobile"] = processedData[5];
-        setSensorData(processedData);
-      } catch (error) {
-        console.error("Error fetching sensor data:", error);
-        setSensorData(null);
-      }
+  // Handle authentication form changes
+  const handleAuthFormChange = (e) => {
+    const { name, value } = e.target;
+    setAuthForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle login/signup
+  const handleAuth = (e) => {
+    e.preventDefault();
+    const { username, password } = authForm;
+    
+    // Simple authentication - check for crop/crop1234
+    if (username === 'crop' && password === 'crop1234') {
+      setIsAuthenticated(true);
+      setUser({ username: 'crop', name: 'Crop User' });
+      setShowAuthForm(false);
+      setAuthForm({ username: '', password: '' });
+    } else {
+      alert('Invalid credentials! Use username: crop, password: crop1234');
     }
+  };
 
-    fetchData();
-  }, []);
+  // Handle logout
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUser(null);
+  };
 
-  // useEffect(
-  //   (_) => {
-  //     nitro_diff = 0;
-  //     phos_diff = 0;
-  //     potas_diff = 0;
-  //     nitro_cost = 0;
-  //     phos_cost = 0;
-  //     potas_cost = 0;
-  //   },
-  //   [sensorData]
-  // );
-
-  // console.log(sensorData);
-
-  function findDeference(a, b) {
-    const d = a - b;
-    return d > 0 ? d : 0;
-  }
-
-  function updateCropState(selectedCrop) {
-    // Find the selected crop object from standardValues
-    const cropData = standardValues.find((crop) => crop.name === selectedCrop);
-
-    // Update chartData with the selected crop's values
-    chartData.forEach((item) => {
-      // Use desktop for standard values
-      item.desktop = cropData.values[item.month];
-    });
-
-    setCurrCrop(selectedCrop);
+  // If user is authenticated, show the dashboard
+  if (isAuthenticated) {
+    return <Dashboard user={user} onLogout={handleLogout} />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-green-900/20 dark:to-blue-900/20">
-      {/* Hero Section */}
-      <section className="relative py-16 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-full text-sm font-medium text-green-800 dark:text-green-300 mb-6 animate-float">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-            Real-time Soil Monitoring
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
+      {/* Authentication Section */}
+      <div className="flex justify-end p-4">
+        {isAuthenticated ? (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                {user?.username?.charAt(0).toUpperCase()}
           </div>
-          
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-6">
-            Smart Agriculture
-            <span className="block text-3xl md:text-5xl mt-2">Soil Health Analytics</span>
-          </h1>
-          
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed">
-            Monitor soil nutrients, analyze crop requirements, and optimize fertilizer usage with our intelligent IoT-powered system.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-              <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
-              Current Crop: <span className="font-semibold ml-1 text-gray-700 dark:text-gray-300">{currCrop}</span>
+              <span className="text-sm text-gray-700">
+                Welcome, {user?.name}
+              </span>
             </div>
-            <DropdownMenuRadioGroupDemo
-              state={currCrop}
-              setState={updateCropState}
-              data={standardValues}
-            />
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleLogout}
+              className="flex items-center gap-2 border-red-400 text-red-700 hover:bg-red-100"
+            >
+              Logout
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => setShowAuthForm(true)}
+            className="flex items-center gap-2 border-blue-400 text-blue-700 hover:bg-blue-100"
+          >
+            Sign Up / Login
+          </Button>
+        )}
+        </div>
+
+      {/* Authentication Modal */}
+      {showAuthForm && !isAuthenticated && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md">
+            <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={authForm.username}
+                  onChange={handleAuthFormChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter username (crop)"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={authForm.password}
+                  onChange={handleAuthFormChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter password (crop1234)"
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Login
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAuthForm(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+            <div className="mt-4 p-3 bg-gray-50 rounded-md">
+              <p className="text-xs text-gray-600 text-center">
+                <strong>Demo Credentials:</strong><br />
+                Username: <code>crop</code><br />
+                Password: <code>crop1234</code>
+              </p>
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* Feature Cards */}
-      <section className="px-4 pb-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm p-6 rounded-2xl border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+      )}
+      {/* User Input Form styled as dashboard top card */}
+      <section className="relative py-8 px-4 flex flex-col items-center justify-center">
+        {!finished && (
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 w-full max-w-2xl text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Enter Your Soil Sample Data</h2>
+            <form onSubmit={handleFormSubmit} className="mb-4 grid grid-cols-2 gap-4 items-center justify-center">
+              <div className="col-span-2">
+                <label htmlFor="crop" className="font-bold text-gray-700 dark:text-gray-200 mr-2">Select Crop:</label>
+                <select id="crop" name="crop" value={form.crop} onChange={handleFormChange} className="border rounded px-4 py-2">
+                  {cropOptions.map(crop => (
+                    <option key={crop.name} value={crop.name}>{crop.name}</option>
+                  ))}
+                </select>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Real-time Monitoring</h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">Continuous tracking of soil nutrients, pH levels, and environmental conditions.</p>
-            </div>
-            
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm p-6 rounded-2xl border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
+              <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
+              <input name="nitrogen" type="number" value={form.nitrogen} onChange={handleFormChange} placeholder="Nitrogen" className="border rounded px-4 py-2" required />
+              <input name="phosphorous" type="number" value={form.phosphorous} onChange={handleFormChange} placeholder="Phosphorous" className="border rounded px-4 py-2" required />
+              <input name="potassium" type="number" value={form.potassium} onChange={handleFormChange} placeholder="Potassium" className="border rounded px-4 py-2" required />
+              <input name="temperature" type="number" value={form.temperature} onChange={handleFormChange} placeholder="Temperature" className="border rounded px-4 py-2" required />
+              <input name="moisture" type="number" value={form.moisture} onChange={handleFormChange} placeholder="Moisture" className="border rounded px-4 py-2" required />
+              <input name="ph" type="number" step="0.1" value={form.ph} onChange={handleFormChange} placeholder="Soil pH" className="border rounded px-4 py-2" required />
+              <div className="col-span-2 flex gap-4 justify-center">
+                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 transition">Add Sample</button>
+                <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition" onClick={() => setFinished(true)} disabled={samples.length === 0}>Finish</button>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Smart Analytics</h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">AI-powered insights for optimal crop selection and fertilizer recommendations.</p>
-            </div>
-            
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm p-6 rounded-2xl border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
+            </form>
+            {samples.length > 0 && (
+              <div className="mt-2 text-lg text-green-700 font-semibold">
+                {samples.length} sample(s) added.
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Cost Optimization</h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">Calculate precise fertilizer requirements and costs for maximum efficiency.</p>
-            </div>
+            )}
           </div>
-        </div>
+        )}
       </section>
 
-      {/* Chart Section */}
-      <section className="px-4 pb-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8">
+      {/* Main dashboard sections */}
+      <section className="max-w-7xl mx-auto px-4 pb-8">
+        {/* Soil Parameter Analysis for each sample */}
+        {!finished && samples.map((sample, idx) => {
+          const std = getStandardValues(sample.crop);
+          const chartData = [
+            { month: "Nitrogen", desktop: std.nitrogen, mobile: sample.nitrogen },
+            { month: "Phosphorous", desktop: std.phosphorous, mobile: sample.phosphorous },
+            { month: "Potassium", desktop: std.potassium, mobile: sample.potassium },
+            { month: "Temperature", desktop: std.temperature, mobile: sample.temperature },
+            { month: "Moisture", desktop: std.moisture, mobile: sample.moisture },
+            { month: "Soil pH", desktop: std.ph, mobile: sample.ph },
+          ];
+          return (
+            <div key={idx} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 mb-12">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Soil Parameter Analysis</h2>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Soil Parameter Analysis for sample {sample.day}</h2>
               <p className="text-gray-600 dark:text-gray-300">Compare standard values with real-time sensor readings</p>
             </div>
             <div className="flex justify-center">
               <ValueChart chartData={chartData} />
             </div>
+            </div>
+          );
+        })}
+
+        {/* Required Addition Graphs after finish */}
+        {/* Group samples by crop and show individual graphs for each crop */}
+        {finished && (() => {
+          // Group samples by crop
+          const cropGroups = {};
+          samples.forEach(sample => {
+            if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
+            cropGroups[sample.crop].push(sample);
+          });
+          // Prices per kg for nutrients
+          const prices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
+          // Render graphs for each crop
+          return Object.entries(cropGroups).map(([cropName, cropSamples], i) => {
+            const std = getStandardValues(cropName);
+            return (
+              <div key={cropName} className="mb-16">
+                <h2 className="text-3xl font-bold text-orange-600 mb-6 text-center">Required Addition for crop: {cropName}</h2>
+                {cropSamples.map((sample, idx) => {
+                  const requiredAdditionData = [
+                    { month: "Nitrogen", required: Math.max(0, std.nitrogen - sample.nitrogen) },
+                    { month: "Phosphorous", required: Math.max(0, std.phosphorous - sample.phosphorous) },
+                    { month: "Potassium", required: Math.max(0, std.potassium - sample.potassium) },
+                  ];
+                  return (
+                    <div key={idx} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-orange-400/40 shadow-xl p-8 mb-8">
+                      <div className="text-center mb-8">
+                        <h3 className="text-2xl font-bold text-orange-600 mb-2">Sample {sample.day}</h3>
+                        <p className="text-gray-600 dark:text-gray-300">Amount needed to reach standard values</p>
+                      </div>
+                      <div className="flex justify-center">
+                        <BarChart width={500} height={300} data={requiredAdditionData} barCategoryGap={30} barGap={12}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" fontSize={16} />
+                          <YAxis fontSize={16} />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="required" fill="#F59E0B" radius={[12, 12, 0, 0]} name="Required Addition" />
+                        </BarChart>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          });
+        })()}
+
+        {/* Overall summary table for all crops and samples */}
+        {finished && (() => {
+          // Group samples by crop
+          const cropGroups = {};
+          samples.forEach(sample => {
+            if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
+            cropGroups[sample.crop].push(sample);
+          });
+          // Prices per kg for nutrients
+          const prices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
+          // Calculate totals
+          let totalNitrogen = 0, totalPhosphorous = 0, totalPotassium = 0, totalCost = 0;
+          const cropSummary = Object.entries(cropGroups).map(([cropName, cropSamples]) => {
+            const std = getStandardValues(cropName);
+            let cropNitrogen = 0, cropPhosphorous = 0, cropPotassium = 0;
+            cropSamples.forEach(sample => {
+              cropNitrogen += Math.max(0, std.nitrogen - sample.nitrogen);
+              cropPhosphorous += Math.max(0, std.phosphorous - sample.phosphorous);
+              cropPotassium += Math.max(0, std.potassium - sample.potassium);
+            });
+            const cropCost = cropNitrogen * prices.nitrogen + cropPhosphorous * prices.phosphorous + cropPotassium * prices.potassium;
+            totalNitrogen += cropNitrogen;
+            totalPhosphorous += cropPhosphorous;
+            totalPotassium += cropPotassium;
+            totalCost += cropCost;
+            return { cropName, cropNitrogen, cropPhosphorous, cropPotassium, cropCost };
+          });
+          return (
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-green-400/40 shadow-xl p-8 mb-12">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-green-700 mb-2">Overall Fertilizer Requirement Summary</h2>
+                <p className="text-gray-600 dark:text-gray-300">Total amount and cost required for all selected crops</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-center">
+                  <thead>
+                    <tr>
+                      <th className="py-4">Crop</th>
+                      <th className="py-4">Nitrogen<br /><span className="text-xs text-gray-500">(kg)</span></th>
+                      <th className="py-4">Phosphorous<br /><span className="text-xs text-gray-500">(kg)</span></th>
+                      <th className="py-4">Potassium<br /><span className="text-xs text-gray-500">(kg)</span></th>
+                      <th className="py-4">Total Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cropSummary.map((row, idx) => (
+                      <tr key={row.cropName}>
+                        <td className="font-semibold text-blue-600">{row.cropName}</td>
+                        <td>{row.cropNitrogen.toFixed(2)}</td>
+                        <td>{row.cropPhosphorous.toFixed(2)}</td>
+                        <td>{row.cropPotassium.toFixed(2)}</td>
+                        <td className="text-green-600 font-bold text-lg">₹{row.cropCost.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-green-50">
+                      <td className="font-bold text-green-700 text-lg">Total</td>
+                      <td className="text-green-600 font-bold text-lg">{totalNitrogen.toFixed(2)}</td>
+                      <td className="text-green-600 font-bold text-lg">{totalPhosphorous.toFixed(2)}</td>
+                      <td className="text-green-600 font-bold text-lg">{totalPotassium.toFixed(2)}</td>
+                      <td className="text-green-600 font-bold text-2xl">₹{totalCost.toFixed(2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
           </div>
         </div>
-      </section>
+          );
+        })()}
 
-      {/* Advanced Charts Section */}
-      <section className="px-4 pb-8">
-        <div className="max-w-7xl mx-auto">
+        {/* Advanced Analytics Dashboard */}
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
               Advanced Analytics Dashboard
@@ -284,218 +399,9 @@ export default function Home() {
               Comprehensive data visualization with time series, 3D effects, radar analysis, and distribution charts
             </p>
           </div>
+  <ChartsContainer samples={samples} />
 
-          {/* Time Series Chart */}
-          <div className="mb-8">
-            <TimeSeriesChart />
-          </div>
-
-          {/* 3D Area Chart and Radar Chart Side by Side */}
-          <div className="grid lg:grid-cols-2 gap-8 mb-8">
-            <ThreeDAreaChart />
-            <SoilHealthRadar />
-          </div>
-
-          {/* Nutrient Distribution Pie Chart */}
-          <div className="flex justify-center mb-8">
-            <div className="w-full max-w-2xl">
-              <NutrientPieChart />
-            </div>
-          </div>
-
-          {/* Interactive Charts Section */}
-          <div className="space-y-8">
-            {/* Soil Health Gauge and Heatmap */}
-            <div className="grid lg:grid-cols-2 gap-8">
-              <SoilHealthGauge value={85} />
-              <SoilHeatmap />
-            </div>
-
-            {/* Combined Climate Chart */}
-            <CombinedChart />
-          </div>
-        </div>
-      </section>
-      {/* Fertilizer Analysis Section */}
-      <section className="px-4 pb-16">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Fertilizer Analysis</h2>
-              <p className="text-gray-600 dark:text-gray-300">Comprehensive fertilizer requirement and cost analysis per hectare</p>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <Table className="w-full">
-                <TableHeader>
-                  <TableRow className="border-b-2 border-gray-200 dark:border-gray-700">
-                    <TableHead className="text-left font-semibold text-gray-900 dark:text-white py-4">Reading Type</TableHead>
-                    <TableHead className="text-center font-semibold text-gray-900 dark:text-white py-4">
-                      <div className="flex flex-col items-center">
-                        <span>Nitrogen</span>
-                        <span className="text-xs text-gray-500 font-normal">(ppm)</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center font-semibold text-gray-900 dark:text-white py-4">
-                      <div className="flex flex-col items-center">
-                        <span>Phosphorous</span>
-                        <span className="text-xs text-gray-500 font-normal">(ppm)</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center font-semibold text-gray-900 dark:text-white py-4">
-                      <div className="flex flex-col items-center">
-                        <span>Potassium</span>
-                        <span className="text-xs text-gray-500 font-normal">(ppm)</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-right font-semibold text-gray-900 dark:text-white py-4">Total Cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <TableCell className="font-semibold py-6 text-blue-600 dark:text-blue-400">
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                        Standard Values
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center py-6 font-mono text-lg">
-                      {typeof chartData[0]["desktop"] === 'number' ? chartData[0]["desktop"] : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-center py-6 font-mono text-lg">
-                      {typeof chartData[1]["desktop"] === 'number' ? chartData[1]["desktop"] : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-center py-6 font-mono text-lg">
-                      {typeof chartData[2]["desktop"] === 'number' ? chartData[2]["desktop"] : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right py-6 text-gray-500">-</TableCell>
-                  </TableRow>
-                  
-                  {sensorData ? (
-                    <>
-                      <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <TableCell className="font-semibold py-6 text-green-600 dark:text-green-400">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
-                            Current Readings
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center py-6 font-mono text-lg">
-                          {typeof sensorData[0] === 'number' ? sensorData[0].toFixed(1) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-center py-6 font-mono text-lg">
-                          {typeof sensorData[1] === 'number' ? sensorData[1].toFixed(1) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-center py-6 font-mono text-lg">
-                          {typeof sensorData[2] === 'number' ? sensorData[2].toFixed(1) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-right py-6 text-gray-500">-</TableCell>
-                      </TableRow>
-                      
-                      <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors bg-orange-50 dark:bg-orange-900/20">
-                        <TableCell className="font-semibold py-6 text-orange-600 dark:text-orange-400">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 bg-orange-500 rounded-full mr-3"></div>
-                            Required Addition
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center py-6 font-mono text-lg font-semibold">
-                          {typeof nitro_diff === 'number' ? nitro_diff.toFixed(1) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-center py-6 font-mono text-lg font-semibold">
-                          {typeof phos_diff === 'number' ? phos_diff.toFixed(1) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-center py-6 font-mono text-lg font-semibold">
-                          {typeof potas_diff === 'number' ? potas_diff.toFixed(1) : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-right py-6 text-gray-500">-</TableCell>
-                      </TableRow>
-                      
-                      <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors bg-green-50 dark:bg-green-900/20 border-t-2 border-green-200 dark:border-green-700">
-                        <TableCell className="font-bold py-6 text-green-700 dark:text-green-300 text-lg">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 bg-green-600 rounded-full mr-3"></div>
-                            Estimated Cost
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center py-6">
-                          <div className="font-bold text-lg text-green-600 dark:text-green-400">
-                            ₹{typeof nitro_cost === 'number' ? nitro_cost.toFixed(2) : 'N/A'}
-                          </div>
-                          <div className="text-xs text-gray-500">@₹{nitro_rate}/kg</div>
-                        </TableCell>
-                        <TableCell className="text-center py-6">
-                          <div className="font-bold text-lg text-green-600 dark:text-green-400">
-                            ₹{typeof phos_cost === 'number' ? phos_cost.toFixed(2) : 'N/A'}
-                          </div>
-                          <div className="text-xs text-gray-500">@₹{phos_rate}/kg</div>
-                        </TableCell>
-                        <TableCell className="text-center py-6">
-                          <div className="font-bold text-lg text-green-600 dark:text-green-400">
-                            ₹{typeof potas_cost === 'number' ? potas_cost.toFixed(2) : 'N/A'}
-                          </div>
-                          <div className="text-xs text-gray-500">@₹{potas_rate}/kg</div>
-                        </TableCell>
-                        <TableCell className="text-right py-6">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            ₹{typeof nitro_cost === 'number' && typeof phos_cost === 'number' && typeof potas_cost === 'number' ? (nitro_cost + phos_cost + potas_cost).toFixed(2) : 'N/A'}
-                          </div>
-                          <div className="text-sm text-gray-500">per hectare</div>
-                        </TableCell>
-                      </TableRow>
-                    </>
-                  ) : (
-                    <>
-                      {[1, 2, 3].map((i) => (
-                        <TableRow key={i} className="animate-pulse">
-                          <TableCell className="py-6">
-                            <div className="flex items-center">
-                              <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full mr-3"></div>
-                              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-24"></div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center py-6">
-                            <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-16 mx-auto"></div>
-                          </TableCell>
-                          <TableCell className="text-center py-6">
-                            <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-16 mx-auto"></div>
-                          </TableCell>
-                          <TableCell className="text-center py-6">
-                            <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-16 mx-auto"></div>
-                          </TableCell>
-                          <TableCell className="text-right py-6">
-                            <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-20 ml-auto"></div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            
-            {sensorData && (
-              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-2xl border border-blue-200 dark:border-blue-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">💡 Recommendations</h3>
-                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Apply fertilizers in split doses for better nutrient absorption
-                  </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Monitor soil moisture levels before and after fertilizer application
-                  </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Consider organic supplements alongside chemical fertilizers
-                  </li>
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Fertilizer Analysis Section removed as per user request */}
       </section>
     </div>
   );

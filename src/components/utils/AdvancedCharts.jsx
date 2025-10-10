@@ -1,17 +1,18 @@
 "use client";
 
-import { 
-  LineChart, 
-  Line, 
-  AreaChart, 
-  Area, 
-  RadarChart, 
-  Radar, 
-  PolarGrid, 
+import React, { useState } from "react";
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  RadarChart,
+  Radar,
+  PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
-  PieChart, 
-  Pie, 
+  PieChart,
+  Pie,
   Cell,
   ResponsiveContainer,
   CartesianGrid,
@@ -21,16 +22,7 @@ import {
   Legend
 } from "recharts";
 
-// Time series data for the last 7 days
-const timeSeriesData = [
-  { day: 'Mon', nitrogen: 120, phosphorous: 50, potassium: 130, temperature: 28, moisture: 65, ph: 6.8 },
-  { day: 'Tue', nitrogen: 118, phosphorous: 52, potassium: 132, temperature: 30, moisture: 62, ph: 6.9 },
-  { day: 'Wed', nitrogen: 125, phosphorous: 55, potassium: 135, temperature: 32, moisture: 60, ph: 7.0 },
-  { day: 'Thu', nitrogen: 122, phosphorous: 53, potassium: 133, temperature: 31, moisture: 58, ph: 6.8 },
-  { day: 'Fri', nitrogen: 124, phosphorous: 56, potassium: 138, temperature: 33, moisture: 55, ph: 7.1 },
-  { day: 'Sat', nitrogen: 126, phosphorous: 54, potassium: 136, temperature: 29, moisture: 63, ph: 6.9 },
-  { day: 'Sun', nitrogen: 123, phosphorous: 55, potassium: 135, temperature: 32, moisture: 60, ph: 7.0 },
-];
+
 
 // Radar chart data for soil health parameters
 const radarData = [
@@ -51,14 +43,13 @@ const pieData = [
 ];
 
 // Time series chart component
-export function TimeSeriesChart() {
+export function TimeSeriesChart({ timeSeriesData }) {
   return (
     <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8">
       <div className="text-center mb-6">
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">7-Day Nutrient Trends</h3>
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Nutrient Trends over sample</h3>
         <p className="text-gray-600 dark:text-gray-300">Historical data showing nutrient level changes over time</p>
       </div>
-      
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -123,14 +114,13 @@ export function TimeSeriesChart() {
 }
 
 // 3D-style area chart component
-export function ThreeDAreaChart() {
+export function ThreeDAreaChart({ timeSeriesData }) {
   return (
     <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8">
       <div className="text-center mb-6">
         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Environmental Conditions</h3>
         <p className="text-gray-600 dark:text-gray-300">Temperature and moisture levels with 3D visualization effect</p>
       </div>
-      
       <div className="h-80 transform perspective-1000 rotate-x-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -194,7 +184,6 @@ export function SoilHealthRadar() {
         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Soil Health Radar</h3>
         <p className="text-gray-600 dark:text-gray-300">Comprehensive soil parameter analysis in radar view</p>
       </div>
-      
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData} margin={{ top: 20, right: 80, bottom: 20, left: 80 }}>
@@ -238,7 +227,6 @@ export function NutrientPieChart() {
         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Nutrient Distribution</h3>
         <p className="text-gray-600 dark:text-gray-300">Current soil nutrient composition breakdown</p>
       </div>
-      
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -286,6 +274,38 @@ export function NutrientPieChart() {
           </PieChart>
         </ResponsiveContainer>
       </div>
+    </div>
+  );
+}
+
+export default function ChartsContainer() {
+  // State for dynamic sample count
+  const [sampleCount, setSampleCount] = useState(7);
+
+  return (
+    <div>
+      <div style={{ marginBottom: "24px" }}>
+        <label htmlFor="sampleCount" style={{ fontWeight: "bold", marginRight: "8px" }}>
+          Number of samples:
+        </label>
+        <input
+          id="sampleCount"
+          type="number"
+          min={1}
+          value={sampleCount}
+          onChange={e => setSampleCount(Number(e.target.value))}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+            width: "80px"
+          }}
+        />
+      </div>
+      <TimeSeriesChart sampleCount={sampleCount} />
+      <ThreeDAreaChart sampleCount={sampleCount} />
+      <SoilHealthRadar />
+      <NutrientPieChart />
     </div>
   );
 }
