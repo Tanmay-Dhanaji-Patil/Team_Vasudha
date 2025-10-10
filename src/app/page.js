@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Dashboard from "@/components/utils/Dashboard";
+import Dashboard from "@/components/Dashboard";
 import ValueChart from "@/components/utils/ValueChart";
 import ChartsContainer from "@/components/utils/ChartsContainer";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 // Chart for each sample input
 function SampleBarChart({ sample, standard }) {
   // Prepare chart data
-const chartData = [
+  const chartData = [
     { name: "Nit", Standard: standard.nitrogen, Observed: sample.nitrogen },
     { name: "Pho", Standard: standard.phosphorous, Observed: sample.phosphorous },
     { name: "Pot", Standard: standard.potassium, Observed: sample.potassium },
@@ -40,7 +40,14 @@ export default function Home() {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthForm, setShowAuthForm] = useState(false);
-  const [authForm, setAuthForm] = useState({ username: '', password: '' });
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [authForm, setAuthForm] = useState({ 
+    username: '', 
+    password: '', 
+    confirmPassword: '', 
+    name: '', 
+    location: '' 
+  });
   const [user, setUser] = useState(null);
 
   // Crop options and their standard values
@@ -92,16 +99,51 @@ export default function Home() {
   // Handle login/signup
   const handleAuth = (e) => {
     e.preventDefault();
-    const { username, password } = authForm;
+    const { username, password, confirmPassword, name, location } = authForm;
     
-    // Simple authentication - check for crop/crop1234
-    if (username === 'crop' && password === 'crop1234') {
+    if (isSignUpMode) {
+      // Sign-up validation
+      if (!name.trim()) {
+        alert('Please enter your name!');
+        return;
+      }
+      if (!location.trim()) {
+        alert('Please enter your location!');
+        return;
+      }
+      if (password !== confirmPassword) {
+        alert('Passwords do not match!');
+        return;
+      }
+      if (name.length < 2) {
+        alert('Name must be at least 2 characters long!');
+        return;
+      }
+      if (password.length < 6) {
+        alert('Password must be at least 6 characters long!');
+        return;
+      }
+      // For demo, we'll accept any valid sign-up and log them in
       setIsAuthenticated(true);
-      setUser({ username: 'crop', name: 'Crop User' });
+      setUser({ 
+        username: name.toLowerCase().replace(/\s+/g, ''), 
+        name: name,
+        location: location 
+      });
       setShowAuthForm(false);
-      setAuthForm({ username: '', password: '' });
+      setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
+      setIsSignUpMode(false);
+      alert(`Account created successfully! Welcome ${name}!`);
     } else {
-      alert('Invalid credentials! Use username: crop, password: crop1234');
+      // Login validation - check for crop/crop1234
+      if (username === 'crop' && password === 'crop1234') {
+        setIsAuthenticated(true);
+        setUser({ username: 'crop', name: 'Crop User', location: 'Demo Farm' });
+        setShowAuthForm(false);
+        setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
+      } else {
+        alert('Invalid credentials! Use username: crop, password: crop1234');
+      }
     }
   };
 
@@ -109,6 +151,12 @@ export default function Home() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUser(null);
+  };
+
+  // Toggle between login and sign-up
+  const toggleAuthMode = () => {
+    setIsSignUpMode(!isSignUpMode);
+    setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
   };
 
   // If user is authenticated, show the dashboard
@@ -125,7 +173,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
                 {user?.username?.charAt(0).toUpperCase()}
-          </div>
+              </div>
               <span className="text-sm text-gray-700">
                 Welcome, {user?.name}
               </span>
@@ -149,50 +197,119 @@ export default function Home() {
             Sign Up / Login
           </Button>
         )}
-        </div>
+      </div>
 
       {/* Authentication Modal */}
       {showAuthForm && !isAuthenticated && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
+            <h2 className="text-2xl font-bold text-center mb-6">
+              {isSignUpMode ? 'Sign Up' : 'Login'}
+            </h2>
             <form onSubmit={handleAuth} className="space-y-4">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  name="username"
-                  value={authForm.username}
-                  onChange={handleAuthFormChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter username (crop)"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={authForm.password}
-                  onChange={handleAuthFormChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter password (crop1234)"
-                  required
-                />
-              </div>
+              {isSignUpMode ? (
+                <>
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={authForm.name}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter your full name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      id="location"
+                      name="location"
+                      value={authForm.location}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter your city/farm location"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={authForm.password}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Choose a password (min 6 characters)"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      value={authForm.confirmPassword}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Confirm your password"
+                      required
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      id="username"
+                      name="username"
+                      value={authForm.username}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter username (crop)"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={authForm.password}
+                      onChange={handleAuthFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter password (crop1234)"
+                      required
+                    />
+                  </div>
+                </>
+              )}
               <div className="flex gap-3">
                 <Button
                   type="submit"
                   className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
                 >
-                  Login
+                  {isSignUpMode ? 'Sign Up' : 'Login'}
                 </Button>
                 <Button
                   type="button"
@@ -204,13 +321,42 @@ export default function Home() {
                 </Button>
               </div>
             </form>
-            <div className="mt-4 p-3 bg-gray-50 rounded-md">
-              <p className="text-xs text-gray-600 text-center">
-                <strong>Demo Credentials:</strong><br />
-                Username: <code>crop</code><br />
-                Password: <code>crop1234</code>
-              </p>
+            
+            {/* Toggle between Login and Sign Up */}
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={toggleAuthMode}
+                className="text-blue-600 hover:text-blue-800 text-sm underline"
+              >
+                {isSignUpMode 
+                  ? "Already have an account? Login here" 
+                  : "Don't have an account? Sign up here"
+                }
+              </button>
             </div>
+
+            {!isSignUpMode && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                <p className="text-xs text-gray-600 text-center">
+                  <strong>Demo Credentials:</strong><br />
+                  Username: <code>crop</code><br />
+                  Password: <code>crop1234</code>
+                </p>
+              </div>
+            )}
+
+            {isSignUpMode && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                <p className="text-xs text-blue-600 text-center">
+                  <strong>Sign Up Requirements:</strong><br />
+                  • Name: minimum 2 characters<br />
+                  • Location: required field<br />
+                  • Password: minimum 6 characters<br />
+                  • Passwords must match
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -264,13 +410,13 @@ export default function Home() {
           ];
           return (
             <div key={idx} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 mb-12">
-            <div className="text-center mb-8">
+              <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Soil Parameter Analysis for sample {sample.day}</h2>
-              <p className="text-gray-600 dark:text-gray-300">Compare standard values with real-time sensor readings</p>
-            </div>
-            <div className="flex justify-center">
-              <ValueChart chartData={chartData} />
-            </div>
+                <p className="text-gray-600 dark:text-gray-300">Compare standard values with real-time sensor readings</p>
+              </div>
+              <div className="flex justify-center">
+                <ValueChart chartData={chartData} />
+              </div>
             </div>
           );
         })}
@@ -385,20 +531,20 @@ export default function Home() {
                     </tr>
                   </tbody>
                 </table>
-          </div>
-        </div>
+              </div>
+            </div>
           );
         })()}
 
         {/* Advanced Analytics Dashboard */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-              Advanced Analytics Dashboard
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Comprehensive data visualization with time series, 3D effects, radar analysis, and distribution charts
-            </p>
-          </div>
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+            Advanced Analytics Dashboard
+          </h2>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            Comprehensive data visualization with time series, 3D effects, radar analysis, and distribution charts
+          </p>
+        </div>
   <ChartsContainer samples={samples} />
 
         {/* Fertilizer Analysis Section removed as per user request */}
