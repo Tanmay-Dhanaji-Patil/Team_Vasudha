@@ -207,9 +207,45 @@ export default function Home() {
   const [showFertilizerModal, setShowFertilizerModal] = useState(false);
   const [fertilizerType, setFertilizerType] = useState(null); // 'organic' or 'inorganic'
   const [selectedCrop, setSelectedCrop] = useState(cropOptions[0].name);
+  
+  // Appointment ID step states
+  const [appointmentId, setAppointmentId] = useState('');
+  const [appointmentDetails, setAppointmentDetails] = useState(null);
+  const [appointmentLoading, setAppointmentLoading] = useState(false);
+  const [appointmentError, setAppointmentError] = useState('');
+  const [showAppointmentStep, setShowAppointmentStep] = useState(true);
 
   // Get standard values for selected crop
   const getStandardValues = (cropName) => cropOptions.find(c => c.name === cropName)?.values || cropOptions[0].values;
+
+  // Handle appointment ID validation
+  const handleAppointmentValidation = async () => {
+    if (!appointmentId.trim()) {
+      setAppointmentError('Please enter an appointment ID');
+      return;
+    }
+
+    setAppointmentLoading(true);
+    setAppointmentError('');
+
+    try {
+      const response = await fetch(`/api/appointment/${appointmentId.trim()}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setAppointmentDetails(result.appointment);
+        setShowAppointmentStep(false);
+        setAppointmentError('');
+      } else {
+        setAppointmentError(result.message || 'Invalid appointment ID');
+      }
+    } catch (error) {
+      console.error('Error validating appointment:', error);
+      setAppointmentError('Failed to validate appointment. Please try again.');
+    } finally {
+      setAppointmentLoading(false);
+    }
+  };
 
   // Handle form input change
   const handleFormChange = (e) => {
@@ -234,7 +270,10 @@ export default function Home() {
         soil_ec: form.soil_ec ? Number(form.soil_ec) : null,
         soil_humidity: form.soil_humidity ? Number(form.soil_humidity) : null,
         ph: Number(form.ph),
-        email: form.email
+        email: form.email,
+        appointmentId: appointmentId,
+        farmerId: appointmentDetails?.farmer?.id,
+        plotId: appointmentDetails?.plot?.id
       }]);
       setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
     } else {
@@ -242,7 +281,10 @@ export default function Home() {
         day: form.day,
         type: 'water',
         water_ph: Number(form.water_ph),
-        email: form.email
+        email: form.email,
+        appointmentId: appointmentId,
+        farmerId: appointmentDetails?.farmer?.id,
+        plotId: appointmentDetails?.plot?.id
       }]);
       setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
     }
@@ -317,9 +359,103 @@ export default function Home() {
         onSignup={handleSignup}
         onClose={() => setShowAuthForm(false)}
       />
+      {/* Appointment ID Input Step */}
+      {showAppointmentStep && (
+        <section className="relative py-8 px-4 flex flex-col items-center justify-center">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 w-full max-w-2xl text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Enter Appointment ID</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Please enter your appointment ID to access the soil sample data form
+            </p>
+            
+            <div className="flex flex-col items-center gap-4">
+              <input
+                type="text"
+                value={appointmentId}
+                onChange={(e) => setAppointmentId(e.target.value)}
+                placeholder="Enter Appointment ID"
+                className="border rounded px-4 py-3 w-full max-w-md text-center text-lg"
+                onKeyPress={(e) => e.key === 'Enter' && handleAppointmentValidation()}
+              />
+              
+              <button
+                onClick={handleAppointmentValidation}
+                disabled={appointmentLoading}
+                className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${
+                  appointmentLoading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
+                } text-white font-semibold`}
+              >
+                {appointmentLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Validating...
+                  </>
+                ) : (
+                  'Validate Appointment'
+                )}
+              </button>
+              
+              {appointmentError && (
+                <div className="text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2 max-w-md">
+                  {appointmentError}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Farmer Summary Display */}
+      {appointmentDetails && !showAppointmentStep && (
+        <section className="relative py-8 px-4 flex flex-col items-center justify-center">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 w-full max-w-4xl text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Farmer Summary</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Farmer Information */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-green-800 mb-4">Farmer Information</h3>
+                <div className="text-left space-y-2">
+                  <p><span className="font-semibold">Name:</span> {appointmentDetails.farmer?.Farmer_name || 'N/A'}</p>
+                  <p><span className="font-semibold">Email:</span> {appointmentDetails.farmer?.Farmer_email || 'N/A'}</p>
+                  <p><span className="font-semibold">Phone:</span> {appointmentDetails.farmer?.Phone_number || 'N/A'}</p>
+                  <p><span className="font-semibold">Location:</span> {appointmentDetails.farmer?.location || 'N/A'}</p>
+                </div>
+              </div>
+              
+              {/* Appointment & Plot Information */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-blue-800 mb-4">Appointment & Plot Details</h3>
+                <div className="text-left space-y-2">
+                  <p><span className="font-semibold">Appointment Date:</span> {appointmentDetails.appointmentDate || 'N/A'}</p>
+                  <p><span className="font-semibold">Appointment Time:</span> {appointmentDetails.appointmentTime || 'N/A'}</p>
+                  <p><span className="font-semibold">Plot Number:</span> {appointmentDetails.plot?.['Plot Number'] || 'N/A'}</p>
+                  <p><span className="font-semibold">Plot Area:</span> {appointmentDetails.plotArea || appointmentDetails.plot?.['Area of Plot'] || 'N/A'}</p>
+                  <p><span className="font-semibold">Category:</span> {appointmentDetails.plot?.Category || 'N/A'}</p>
+                  <p><span className="font-semibold">Location:</span> {appointmentDetails.plot?.['Village Name'] ? 
+                    `${appointmentDetails.plot['Village Name']}, ${appointmentDetails.plot.Taluka}, ${appointmentDetails.plot.District}, ${appointmentDetails.plot.State}` : 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowAppointmentStep(true)}
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+            >
+              Change Appointment ID
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* User Input Form styled as dashboard top card */}
       <section className="relative py-8 px-4 flex flex-col items-center justify-center">
-        {!finished && (
+        {!finished && !showAppointmentStep && (
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 w-full max-w-2xl text-center">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Enter Your Soil Sample Data</h2>
             <form onSubmit={handleFormSubmit} className="mb-4 grid grid-cols-2 gap-4 items-center justify-center">
