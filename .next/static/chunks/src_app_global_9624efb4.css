@@ -2836,9 +2836,9 @@
 
 :root {
   --radius: .625rem;
-  --background: #fff;
+  --background: #d3f0b8;
   --foreground: #0a0a0a;
-  --card: #fff;
+  --card: #def4ca;
   --card-foreground: #0a0a0a;
   --popover: #fff;
   --popover-foreground: #0a0a0a;
@@ -2871,9 +2871,9 @@
 
 @supports (color: color(display-p3 0 0 0)) {
   :root {
-    --background: color(display-p3 1 1 1);
+    --background: color(display-p3 .84944 .93759 .741722);
     --foreground: color(display-p3 .0393882 .0393882 .0393882);
-    --card: color(display-p3 1 1 1);
+    --card: color(display-p3 .886767 .953882 .806744);
     --card-foreground: color(display-p3 .0393882 .0393882 .0393882);
     --popover: color(display-p3 1 1 1);
     --popover-foreground: color(display-p3 .0393882 .0393882 .0393882);
@@ -2907,9 +2907,9 @@
 
 @supports (color: lab(0% 0 0)) {
   :root {
-    --background: lab(100% 0 0);
+    --background: lab(91.6219% -17.0313 23.9603);
     --foreground: lab(2.75381% 0 0);
-    --card: lab(100% 0 0);
+    --card: lab(93.7297% -12.8941 17.7823);
     --card-foreground: lab(2.75381% 0 0);
     --popover: lab(100% 0 0);
     --popover-foreground: lab(2.75381% 0 0);

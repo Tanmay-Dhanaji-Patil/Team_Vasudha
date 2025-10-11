@@ -63,24 +63,7 @@ function SendReportButton({ samples }) {
         }),
       });
 
-      // Check if response is ok
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Check if response has content before parsing JSON
-      const text = await response.text();
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (parseError) {
-        console.error('Failed to parse JSON:', text);
-        throw new Error('Invalid JSON response from server');
-      }
+      const result = await response.json();
 
       if (result.success) {
         setEmailStatus(`✅ Success! Report sent to ${result.emails.length} email(s): ${result.emails.join(', ')}`);
