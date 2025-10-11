@@ -206,8 +206,8 @@ export function CombinedChart() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="text-gray-300 dark:text-gray-600" />
             <XAxis dataKey="month" className="text-gray-600 dark:text-gray-400" />
-            <YAxis yAxisId="left" className="text-gray-600 dark:text-gray-400" />
-            <YAxis yAxisId="right" orientation="right" className="text-gray-600 dark:text-gray-400" />
+            <YAxis yAxisId="left" className="text-gray-600 dark:text-gray-400" domain={[0, 200]} />
+            <YAxis yAxisId="right" orientation="right" className="text-gray-600 dark:text-gray-400" domain={[0, 200]} />
             <Tooltip 
               contentStyle={{
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',

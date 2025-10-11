@@ -18,9 +18,9 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
     setEmailStatus('');
 
     try {
-      // Group samples by crop for analysis
+      // Group soil samples by crop for analysis
       const cropGroups = {};
-      samples.forEach(sample => {
+      samples.filter(s => s.type === 'soil' || s.type === undefined).forEach(sample => {
         if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
         cropGroups[sample.crop].push(sample);
       });
@@ -59,10 +59,10 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
           organicFertilizers,
           inorganicFertilizers,
           reportData: {
-            totalSamples: samples.length,
-            crops: Object.keys(cropGroups),
-            generatedDate: new Date().toISOString()
-          }
+              totalSamples: samples.filter(s => s.type === 'soil' || s.type === undefined).length,
+              crops: Object.keys(cropGroups),
+              generatedDate: new Date().toISOString()
+            }
         }),
       });
 
@@ -127,6 +127,8 @@ function SampleBarChart({ sample, standard }) {
     { name: "Pot", Standard: standard.potassium, Observed: sample.potassium },
     { name: "Tem", Standard: standard.temperature, Observed: sample.temperature },
     { name: "Moi", Standard: standard.moisture, Observed: sample.moisture },
+    { name: "EC", Standard: standard.ec ?? 0, Observed: sample.soil_ec ?? 0 },
+    { name: "Hum", Standard: standard.humidity ?? 0, Observed: sample.soil_humidity ?? 0 },
     { name: "Soi", Standard: standard.ph, Observed: sample.ph },
   ];
   return (
@@ -195,7 +197,12 @@ export default function Home() {
   const inorganicPrices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
   const [user, setUser] = useState(null);  // State for all samples entered by user
   const [samples, setSamples] = useState([]);
-  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '', email: '' });
+  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
+  // inputMode: one of 'manual-soil' | 'manual-water' | 'thingspeak-soil' | 'thingspeak-water'
+  const [inputMode, setInputMode] = useState('manual-soil');
+  const [tsChannelId, setTsChannelId] = useState('');
+  const [tsLoading, setTsLoading] = useState(false);
+  const [tsError, setTsError] = useState(null);
   const [finished, setFinished] = useState(false);
   const [showFertilizerModal, setShowFertilizerModal] = useState(false);
   const [fertilizerType, setFertilizerType] = useState(null); // 'organic' or 'inorganic'
@@ -213,36 +220,32 @@ export default function Home() {
   // Handle form submit to add sample
   const handleFormSubmit = (e) => {
     e.preventDefault();
-
-    // Basic validation
-    if (!form.day || !form.day.trim()) {
-      alert('Please enter a sample number (e.g. S1)');
-      return;
+    if (!form.day) return;
+  if (inputMode && inputMode.endsWith('soil')) {
+      setSamples((prev) => [...prev, {
+        day: form.day,
+        type: 'soil',
+        crop: form.crop,
+        nitrogen: Number(form.nitrogen),
+        phosphorous: Number(form.phosphorous),
+        potassium: Number(form.potassium),
+        temperature: Number(form.temperature),
+        moisture: Number(form.moisture),
+        soil_ec: form.soil_ec ? Number(form.soil_ec) : null,
+        soil_humidity: form.soil_humidity ? Number(form.soil_humidity) : null,
+        ph: Number(form.ph),
+        email: form.email
+      }]);
+      setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
+    } else {
+      setSamples((prev) => [...prev, {
+        day: form.day,
+        type: 'water',
+        water_ph: Number(form.water_ph),
+        email: form.email
+      }]);
+      setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
     }
-    if (!form.email || !form.email.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    // Safely parse numeric inputs; fall back to 0 if parsing fails
-    const safeNumber = (v) => {
-      const n = parseFloat(String(v).trim());
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    setSamples((prev) => [...prev, {
-      day: form.day,
-      crop: form.crop,
-      nitrogen: safeNumber(form.nitrogen),
-      phosphorous: safeNumber(form.phosphorous),
-      potassium: safeNumber(form.potassium),
-      temperature: safeNumber(form.temperature),
-      moisture: safeNumber(form.moisture),
-      ph: safeNumber(form.ph),
-      email: form.email.trim()
-    }]);
-
-    setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '', email: '' });
   };
 
   // Handle successful login
@@ -328,20 +331,137 @@ export default function Home() {
                   ))}
                 </select>
               </div>
+              {/* ThingSpeak toggle and quick autofill */}
+              <div className="col-span-2 flex items-center gap-4">
+                <label className="flex items-center gap-3">
+                  <input type="radio" name="inputMode" checked={inputMode === 'manual-soil'} onChange={() => setInputMode('manual-soil')} />
+                  <span className="text-sm">Manual — Soil</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" name="inputMode" checked={inputMode === 'manual-water'} onChange={() => setInputMode('manual-water')} />
+                  <span className="text-sm">Manual — Water (water pH)</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" name="inputMode" checked={inputMode === 'thingspeak-soil'} onChange={() => setInputMode('thingspeak-soil')} />
+                  <span className="text-sm">ThingSpeak — Soil</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" name="inputMode" checked={inputMode === 'thingspeak-water'} onChange={() => setInputMode('thingspeak-water')} />
+                  <span className="text-sm">ThingSpeak — Water</span>
+                </label>
+                {(inputMode === 'thingspeak-soil' || inputMode === 'thingspeak-water') && (
+                  <div className="flex items-center gap-2 ml-4">
+                    <input
+                      placeholder="ThingSpeak channel id"
+                      value={tsChannelId}
+                      onChange={(e) => setTsChannelId(e.target.value)}
+                      className="border rounded px-3 py-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setTsError(null);
+                        if (!tsChannelId) return setTsError('Enter channel id');
+                        setTsLoading(true);
+                        let channelData = null;
+                        let last = null;
+                        try {
+                          // First try client-side public fetch (fast path)
+                          try {
+                            const chRes = await fetch(`https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}.json`);
+                            if (!chRes.ok) throw new Error(`Channel fetch failed: ${chRes.status}`);
+                            channelData = await chRes.json();
+                            const feedRes = await fetch(`https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}/feeds.json?results=1`);
+                            if (feedRes.ok) {
+                              const feedData = await feedRes.json().catch(() => null);
+                              last = feedData?.feeds?.[0] ?? null;
+                              if (last) channelData.feeds = feedData.feeds;
+                            }
+                          } catch (clientErr) {
+                            // If client can't fetch (CORS or private channel), fallback to server-side fetch
+                            console.info('Client-side ThingSpeak fetch failed, falling back to server fetch:', clientErr?.message ?? clientErr);
+                            const apiRes = await fetch(`/api/thingspeak?id=${encodeURIComponent(tsChannelId)}&fetch=1`);
+                            if (!apiRes.ok) {
+                              const txt = await apiRes.text().catch(() => '');
+                              throw new Error(`Server fetch failed: ${apiRes.status} ${txt}`);
+                            }
+                            const apiJson = await apiRes.json();
+                            if (!apiJson?.success) throw new Error(apiJson?.message || 'Server fetch returned an error');
+                            channelData = apiJson.channel;
+                            last = (channelData?.feeds && channelData.feeds[0]) || null;
+                          }
 
-              <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
+                          if (!channelData) throw new Error('No channel data returned');
 
-              {/* Full-width email input so users can enter the recipient address for the report */}
-              <div className="col-span-2">
-                <label htmlFor="email" className="sr-only">Email for report</label>
-                <input name="email" id="email" type="email" value={form.email} onChange={handleFormChange} placeholder="Email for report (you@example.com)" className="w-full border rounded px-4 py-2" required />
+                          // Map ThingSpeak field names to our form keys
+                          const currentParam = inputMode && inputMode.endsWith('water') ? 'water' : 'soil';
+                          const mapFieldNameToKey = (name) => {
+                            if (!name) return null;
+                            const n = String(name).toLowerCase();
+                            if (n.includes('nitrogen') || n.includes('nitro')) return 'nitrogen';
+                            if (n.includes('phosphor') || n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
+                            if (n.includes('potass')) return 'potassium';
+                            if (n.includes('temp')) return 'temperature';
+                            if (n.includes('moisture')) return 'moisture';
+                            if (n.includes('ec') || n.includes('conductivity')) return 'soil_ec';
+                            if (n.includes('humidity')) return 'soil_humidity';
+                            // match pH but avoid matching 'phosphorous'
+                            if (currentParam === 'water') {
+                              if ((n.includes('water') && (n.includes('ph') || n.includes('pH'.toLowerCase()))) || /\bph\b/.test(n)) return 'water_ph';
+                            } else {
+                              if ((/\bph\b/.test(n) && !n.includes('phosph')) || n === 'ph') return 'ph';
+                            }
+                            return null;
+                          };
+
+                          const newForm = { ...form };
+                          if (last) {
+                            for (let i = 1; i <= 8; i++) {
+                              const fname = channelData[`field${i}`];
+                              const fval = last[`field${i}`];
+                              const key = mapFieldNameToKey(fname);
+                              if (key && fval != null && fval !== '') {
+                                const num = parseFloat(fval);
+                                newForm[key] = isNaN(num) ? fval : num;
+                              }
+                            }
+                            if (last.created_at) newForm.day = last.created_at;
+                          }
+
+                          setForm(newForm);
+                        } catch (err) {
+                          console.error('ThingSpeak fetch/fill error:', err);
+                          setTsError(String(err.message ?? err));
+                        } finally {
+                          setTsLoading(false);
+                        }
+                      }}
+                      className="px-3 py-2 bg-indigo-600 text-white rounded"
+                      disabled={tsLoading}
+                    >
+                      {tsLoading ? 'Fetching...' : 'Fetch & Fill'}
+                    </button>
+                  </div>
+                )}
               </div>
-              <input name="nitrogen" type="number" min="0" step="0.1" value={form.nitrogen} onChange={handleFormChange} placeholder="Nitrogen" className="border rounded px-4 py-2" />
-              <input name="phosphorous" type="number" min="0" step="0.1" value={form.phosphorous} onChange={handleFormChange} placeholder="Phosphorous" className="border rounded px-4 py-2" />
-              <input name="potassium" type="number" min="0" step="0.1" value={form.potassium} onChange={handleFormChange} placeholder="Potassium" className="border rounded px-4 py-2" />
-              <input name="temperature" type="number" min="-50" max="100" step="0.1" value={form.temperature} onChange={handleFormChange} placeholder="Temperature" className="border rounded px-4 py-2" />
-              <input name="moisture" type="number" min="0" max="100" step="0.1" value={form.moisture} onChange={handleFormChange} placeholder="Moisture" className="border rounded px-4 py-2" />
-              <input name="ph" type="number" min="0" max="14" step="0.1" value={form.ph} onChange={handleFormChange} placeholder="Soil pH" className="border rounded px-4 py-2" />
+              <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
+              <input name="email" type="email" value={form.email} onChange={handleFormChange} placeholder="Email for report" className="border rounded px-4 py-2" required />
+              {inputMode && inputMode.endsWith('soil') ? (
+                <>
+                  <input name="nitrogen" type="number" value={form.nitrogen} onChange={handleFormChange} placeholder="Nitrogen" className="border rounded px-4 py-2" required />
+                  <input name="phosphorous" type="number" value={form.phosphorous} onChange={handleFormChange} placeholder="Phosphorous" className="border rounded px-4 py-2" required />
+                  <input name="potassium" type="number" value={form.potassium} onChange={handleFormChange} placeholder="Potassium" className="border rounded px-4 py-2" required />
+                  <input name="temperature" type="number" value={form.temperature} onChange={handleFormChange} placeholder="Temperature" className="border rounded px-4 py-2" required />
+                  <input name="moisture" type="number" value={form.moisture} onChange={handleFormChange} placeholder="Soil Moisture" className="border rounded px-4 py-2" required />
+                  <input name="soil_ec" type="number" value={form.soil_ec} onChange={handleFormChange} placeholder="Soil EC" className="border rounded px-4 py-2" />
+                  <input name="soil_humidity" type="number" value={form.soil_humidity} onChange={handleFormChange} placeholder="Soil Humidity" className="border rounded px-4 py-2" />
+                  <input name="ph" type="number" step="0.1" value={form.ph} onChange={handleFormChange} placeholder="Soil pH" className="border rounded px-4 py-2" required />
+                </>
+              ) : (
+                <>
+                  <input name="water_ph" type="number" step="0.1" value={form.water_ph} onChange={handleFormChange} placeholder="Water pH" className="border rounded px-4 py-2" required />
+                </>
+              )}
               <div className="col-span-2 flex gap-4 justify-center">
                 <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 transition">Add Sample</button>
                 <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition" onClick={() => setShowFertilizerModal(true)} disabled={samples.length === 0}>Finish</button>
@@ -364,7 +484,7 @@ export default function Home() {
       {/* Main dashboard sections */}
       <section className="max-w-7xl mx-auto px-4 pb-8">
         {/* Soil Parameter Analysis for each sample */}
-        {!finished && samples.map((sample, idx) => {
+  {!finished && samples.filter(s => s.type === 'soil' || s.type === undefined).map((sample, idx) => {
           const std = getStandardValues(sample.crop);
           const chartData = [
             { month: "Nitrogen", desktop: std.nitrogen, mobile: sample.nitrogen },
@@ -458,7 +578,7 @@ export default function Home() {
         {finished && (() => {
           // Group samples by crop
           const cropGroups = {};
-          samples.forEach(sample => {
+          samples.filter(s => s.type === 'soil' || s.type === undefined).forEach(sample => {
             if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
             cropGroups[sample.crop].push(sample);
           });
@@ -506,7 +626,7 @@ export default function Home() {
   {finished && (() => {
           // Group samples by crop
           const cropGroups = {};
-          samples.forEach(sample => {
+          samples.filter(s => s.type === 'soil' || s.type === undefined).forEach(sample => {
             if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
             cropGroups[sample.crop].push(sample);
           });

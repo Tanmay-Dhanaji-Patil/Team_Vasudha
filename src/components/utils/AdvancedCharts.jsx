@@ -69,7 +69,7 @@ export function TimeSeriesChart({ timeSeriesData }) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="text-gray-300 dark:text-gray-600" />
             <XAxis dataKey="day" className="text-gray-600 dark:text-gray-400" />
-            <YAxis className="text-gray-600 dark:text-gray-400" />
+            <YAxis className="text-gray-600 dark:text-gray-400" domain={[0, 200]} />
             <Tooltip 
               contentStyle={{
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -139,7 +139,7 @@ export function ThreeDAreaChart({ timeSeriesData }) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="text-gray-300 dark:text-gray-600" />
             <XAxis dataKey="day" className="text-gray-600 dark:text-gray-400" />
-            <YAxis className="text-gray-600 dark:text-gray-400" />
+            <YAxis className="text-gray-600 dark:text-gray-400" domain={[0, 200]} />
             <Tooltip 
               contentStyle={{
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',

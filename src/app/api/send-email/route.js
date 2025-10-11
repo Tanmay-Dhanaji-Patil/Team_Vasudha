@@ -1,25 +1,92 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
+import { supabaseAdmin } from '@/database/supabaseAdmin';
+
+const BUCKET = 'soil-reports';
+
+export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
-    const { samples, cropGroups, totalCost, reportData } = await request.json();
+    const { samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData } = await request.json();
 
-    // Create transporter with the provided email credentials
+    // Create transporter with environment variables
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: process.env.SMTP_SERVICE || 'gmail',
       auth: {
-        user: 'cropdemo8@gmail.com',
-        pass: 'gupt fyrh tjac lwbq' // App password
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
       }
     });
 
-    // Get unique emails from samples
+    // Validate email configuration
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return NextResponse.json(
+        { success: false, message: 'Email configuration is missing. Please check environment variables.' },
+        { status: 500 }
+      );
+    }    // Get unique emails from samples
     const uniqueEmails = [...new Set(samples.map(sample => sample.email))];
 
     // Generate PDF from data
-    const pdfBuffer = await generatePDF(samples, cropGroups, totalCost, reportData);
+    const pdfBuffer = await generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData);
+
+    // Upload per farmer with metadata
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
+    const uploads = [];
+
+    for (const email of uniqueEmails) {
+      // Fetch farmer by email from "Farmer Data"
+      const { data: farmer, error: farmerError } = await supabaseAdmin
+        .from('Farmer Data')
+        .select('id, Farmer_name, Farmer_email')
+        .eq('Farmer_email', email)
+        .maybeSingle();
+
+      if (farmerError) {
+        // continue with unknown metadata if lookup fails
+      }
+
+      const farmerId = farmer?.id ?? 'unknown';
+      const farmerName = farmer?.Farmer_name ?? 'unknown';
+
+      const reportFileName = `Soil_Analysis_Report_${timestamp}.pdf`;
+      const reportPath = `reports/${farmerId}/${reportFileName}`;
+
+      let uploadErrMsg = null;
+      let signedUrl = null;
+      try {
+        const { error: uploadError } = await supabaseAdmin
+          .storage
+          .from(BUCKET)
+          .upload(reportPath, fileBlob, {
+            contentType: 'application/pdf',
+            upsert: true,
+            metadata: {
+              farmer_id: String(farmerId),
+              farmer_name: String(farmerName),
+              farmer_email: String(email)
+            }
+          });
+        if (uploadError) {
+          uploadErrMsg = `Upload failed: ${uploadError.message}`;
+        } else {
+          const { data: signedUrlData, error: signedError } = await supabaseAdmin
+            .storage
+            .from(BUCKET)
+            .createSignedUrl(reportPath, 60 * 60);
+          if (!signedError) {
+            signedUrl = signedUrlData?.signedUrl || null;
+          }
+        }
+      } catch (e) {
+        uploadErrMsg = e?.message || 'Unknown upload error';
+      }
+
+      uploads.push({ email, farmer_id: farmerId, farmer_name: farmerName, storagePath: reportPath, signedUrl, uploadError: uploadErrMsg });
+    }
 
     // Create a simple email text version
     const emailText = generateEmailText(samples, uniqueEmails.length);
@@ -27,7 +94,7 @@ export async function POST(request) {
     // Send email to each unique email address with PDF attachment
     const emailPromises = uniqueEmails.map(async (email) => {
       const mailOptions = {
-        from: 'cropdemo8@gmail.com',
+        from: process.env.SMTP_USER,
         to: email,
         subject: '🌱 Professional Soil Analysis Report - PDF Attached',
         html: emailText,
@@ -40,15 +107,22 @@ export async function POST(request) {
         ]
       };
 
-      return transporter.sendMail(mailOptions);
+      try {
+        await transporter.sendMail(mailOptions);
+        return { email, sent: true };
+      } catch (e) {
+        return { email, sent: false, error: e?.message || 'Email send error' };
+      }
     });
 
-    await Promise.all(emailPromises);
+    const emailResults = await Promise.all(emailPromises);
 
     return NextResponse.json({ 
       success: true, 
-      message: `PDF Report sent successfully to ${uniqueEmails.length} email(s)`,
-      emails: uniqueEmails
+      message: `Processed ${uniqueEmails.length} recipient(s)`,
+      emails: uniqueEmails,
+      uploads,
+      emailResults
     });
 
   } catch (error) {
@@ -236,7 +310,7 @@ const styles = StyleSheet.create({
 });
 
 // Generate PDF using React-PDF
-async function generatePDF(samples, cropGroups, totalCost, reportData) {
+async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData) {
   try {
     // Group samples by crop for the report
     const groupedSamples = {};
@@ -504,6 +578,58 @@ async function generatePDF(samples, cropGroups, totalCost, reportData) {
               </Text>
             </View>
           </View>
+
+          {/* Fertilizer Recommendations */}
+          {fertilizerType && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {fertilizerType === 'organic' ? '🌱 Organic' : '⚗️ Inorganic'} Fertilizer Recommendations
+              </Text>
+              <Text style={styles.sectionSubtitle}>
+                Recommended {fertilizerType === 'organic' ? 'organic' : 'inorganic'} fertilizers for your soil analysis
+              </Text>
+              
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableCell, { flex: 1.2 }]}>Nutrient</Text>
+                  <Text style={[styles.tableCell, { flex: 2 }]}>Fertilizer Name</Text>
+                  <Text style={[styles.tableCell, { flex: 1.5 }]}>Form</Text>
+                  <Text style={[styles.tableCell, { flex: 1.2 }]}>NPK Ratio</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>Price (₹/kg)</Text>
+                </View>
+                
+                {(fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers).nitrogen.map((fertilizer, index) => (
+                  <View key={`nitrogen-${index}`} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>Nitrogen (N)</Text>
+                    <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>{fertilizer.name}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.5 }]}>{fertilizer.form}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{fertilizer.npk || 'High Nitrogen'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, fontWeight: 'bold' }]}>₹{fertilizer.price}</Text>
+                  </View>
+                ))}
+                
+                {(fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers).phosphorous.map((fertilizer, index) => (
+                  <View key={`phosphorous-${index}`} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>Phosphorous (P)</Text>
+                    <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>{fertilizer.name}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.5 }]}>{fertilizer.form}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{fertilizer.npk || 'High Phosphorous'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, fontWeight: 'bold' }]}>₹{fertilizer.price}</Text>
+                  </View>
+                ))}
+                
+                {(fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers).potassium.map((fertilizer, index) => (
+                  <View key={`potassium-${index}`} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>Potassium (K)</Text>
+                    <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>{fertilizer.name}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.5 }]}>{fertilizer.form}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{fertilizer.npk || 'High Potassium'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, fontWeight: 'bold' }]}>₹{fertilizer.price}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Footer */}
           <View style={styles.footer}>

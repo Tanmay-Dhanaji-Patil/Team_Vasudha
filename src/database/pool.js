@@ -1,7 +1,15 @@
 const { Pool } = require('pg');
 
+// Load environment variables in Node.js
+require('dotenv').config({ path: '.env.local' });
+
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.aundcwgdakyttydeqbca:VASUDHA@123@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres'
+  connectionString: process.env.DATABASE_URL
 });
+
+// Validate database URL
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is missing. Please check your .env.local file.');
+}
 
 module.exports = pool;

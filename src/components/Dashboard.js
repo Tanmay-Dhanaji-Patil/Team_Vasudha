@@ -3,10 +3,20 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import WeatherCard from "@/components/utils/WeatherCard";
+import Chatbot from "@/components/Chatbot";
+import PlotDetailsForm from "@/components/PlotDetailsForm";
+import AppointmentForm from "@/components/AppointmentForm";
 
 export default function Dashboard({ user, onLogout }) {
   const [notifications, setNotifications] = useState([]);
   const [weatherRecommendations, setWeatherRecommendations] = useState([]);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [isPlotDetailsOpen, setIsPlotDetailsOpen] = useState(false);
+  const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState(user?.profileImage || null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showUploadSuccess, setShowUploadSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const staticNotifications = [
     {
@@ -37,6 +47,16 @@ export default function Dashboard({ user, onLogout }) {
       action: null
     }
   ];
+
+  // Loading screen effect with fallback timer
+  useEffect(() => {
+    // Fallback timer in case video doesn't end properly (10 seconds max)
+    const fallbackTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 10000);
+
+    return () => clearTimeout(fallbackTimer);
+  }, []);
 
   // Fetch weather recommendations
   useEffect(() => {
@@ -219,6 +239,97 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
+  const handleProfileImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      // Create a local URL for immediate preview
+      const imageUrl = URL.createObjectURL(file);
+      setProfileImage(imageUrl);
+
+      // Here you would typically upload to your server/cloud storage
+      // For now, we'll just store it locally
+      
+      // Example API call (uncomment when you have an upload endpoint):
+      /*
+      const formData = new FormData();
+      formData.append('profileImage', file);
+      formData.append('userId', user.id);
+
+      const response = await fetch('/api/upload-profile-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setProfileImage(data.imageUrl);
+      } else {
+        throw new Error('Upload failed');
+      }
+      */
+
+      // Show success message
+      setShowUploadSuccess(true);
+      setTimeout(() => setShowUploadSuccess(false), 3000);
+      
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      alert('Failed to upload profile image. Please try again.');
+      setProfileImage(user?.profileImage || null);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Loading Screen Component - Full video playback
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black z-50">
+        <video
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          className="w-full h-full object-cover"
+          onEnded={() => setIsLoading(false)}
+          onLoadedData={(e) => {
+            console.log('Video loaded successfully');
+            e.target.currentTime = 0;
+          }}
+          onCanPlay={() => {
+            console.log('Video can start playing');
+          }}
+          onError={(e) => {
+            console.error('Video failed to load:', e);
+            setIsLoading(false);
+          }}
+          onLoadStart={() => {
+            console.log('Video load started');
+          }}
+        >
+          <source src="/start.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -230,25 +341,149 @@ export default function Dashboard({ user, onLogout }) {
                 <span className="text-white font-bold text-lg">🌾</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Vasu Vaidya</h1>
+                <h1 className="text-xl font-bold text-gray-900">Krishi Samadhanam</h1>
                 <p className="text-sm text-gray-500">Your Farming Companion</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <button className="text-gray-600 hover:text-gray-900">Support</button>
-              <button className="text-gray-600 hover:text-gray-900">English</button>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {user?.username?.charAt(0).toUpperCase()}
+              <button className="text-gray-600 hover:text-gray-900 text-sm">Support</button>
+              <button className="text-gray-600 hover:text-gray-900 text-sm">English</button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLogout}
+                className="text-red-600 border-red-300 hover:bg-red-50"
+              >
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* User Profile Section */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 rounded-2xl shadow-2xl p-6 mb-6">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
+          
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="flex items-center gap-4 sm:gap-6">
+              {/* Enhanced Avatar */}
+              <div className="relative group cursor-pointer">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl border border-white/30 overflow-hidden transition-all duration-300 group-hover:scale-105 relative">
+                  {profileImage ? (
+                    <img 
+                      src={profileImage} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-2xl sm:text-3xl drop-shadow-lg">
+                      {user?.name?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  )}
+                  
+                  {/* Loading overlay during upload */}
+                  {uploadingImage && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  
+                  {/* Hover Overlay */}
+                  {!uploadingImage && (
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="w-6 h-6 text-white mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p className="text-white text-xs font-medium">
+                          {profileImage ? 'Change' : 'Upload'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onLogout}
-                  className="text-red-600 border-red-300 hover:bg-red-50"
-                >
-                  Logout
-                </Button>
+                
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileImageUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  title="Upload profile picture"
+                />
+                
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-300 rounded-full flex items-center justify-center border-2 border-white">
+                  <div className="w-2 h-2 bg-emerald-600 rounded-full animate-pulse"></div>
+                </div>
+                
+                {/* Success notification */}
+                {showUploadSuccess && (
+                  <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full shadow-lg animate-bounce">
+                    ✓ Uploaded!
+                  </div>
+                )}
+              </div>
+              
+              {/* User Info */}
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white drop-shadow-md">
+                    Hello, {user?.name || user?.username || 'Farmer'}! 👋
+                  </h2>
+                  <span className="bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium border border-white/30">
+                    Premium Member
+                  </span>
+                </div>
+                
+                {/* Location and ID Cards */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
+                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-white/80 text-xs font-medium">Location</p>
+                      <p className="text-white font-semibold text-sm">{user?.location || 'Not set'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
+                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" clipRule="evenodd" />
+                        <path d="M8 8h4v4H8z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-white/80 text-xs font-medium">Farmer ID</p>
+                      <p className="text-white font-mono text-sm font-semibold">#{user?.id || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Status and Stats */}
+            <div className="flex sm:flex-col items-center sm:items-end gap-3">
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30 text-center">
+                <div className="text-white text-2xl mb-1">🌟</div>
+                <p className="text-white/90 text-xs font-medium">Active</p>
+                <p className="text-white text-sm font-bold">Farmer</p>
+              </div>
+              
+              <div className="bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+                  <span className="text-white text-xs font-medium">Online Now</span>
+                </div>
               </div>
             </div>
           </div>
@@ -257,6 +492,44 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Plot Details Section */}
+        <div className="mb-6">
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">🏡 Plot Management</h2>
+                <p className="text-gray-600">Add and manage your farm plot details for better crop planning and analysis.</p>
+              </div>
+              <Button
+                onClick={() => setIsPlotDetailsOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <span className="mr-2">📝</span>
+                Add Plot Details
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Appointment Booking Section */}
+        <div className="mb-6">
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">📅 Book Appointment</h2>
+                <p className="text-gray-600">Schedule appointments for your farm plots with agricultural experts.</p>
+              </div>
+              <Button
+                onClick={() => setIsAppointmentOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <span className="mr-2">📅</span>
+                Book Appointment
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Weather Card */}
@@ -348,6 +621,11 @@ export default function Dashboard({ user, onLogout }) {
                               Weather
                             </span>
                           )}
+                          {notification.source === 'gemini' && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700">
+                              ✨ AI
+                            </span>
+                          )}
                           <span className={`text-xs px-2 py-1 rounded-full ${
                             notification.priority === 'high' ? 'bg-red-100 text-red-700' : 
                             notification.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
@@ -389,6 +667,46 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Floating Chatbot Button */}
+      <button
+        onClick={() => setIsChatbotOpen(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center z-40 group"
+        title="Ask AI Assistant"
+      >
+        <span className="text-2xl group-hover:scale-110 transition-transform">🤖</span>
+      </button>
+
+      {/* Chatbot Component */}
+      <Chatbot 
+        user={user}
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+      />
+
+      {/* Plot Details Form */}
+      {isPlotDetailsOpen && (
+        <PlotDetailsForm
+          user={user}
+          onClose={() => setIsPlotDetailsOpen(false)}
+          onSuccess={() => {
+            // You can add any success handling here
+            console.log('Plot details saved successfully');
+          }}
+        />
+      )}
+
+      {/* Appointment Form */}
+      {isAppointmentOpen && (
+        <AppointmentForm
+          user={user}
+          onClose={() => setIsAppointmentOpen(false)}
+          onSuccess={() => {
+            // You can add any success handling here
+            console.log('Appointment booked successfully');
+          }}
+        />
+      )}
     </div>
   );
 }

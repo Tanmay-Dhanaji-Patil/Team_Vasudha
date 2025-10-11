@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
+import { generateSmartRecommendations } from '../../../lib/geminiService.js';
 
 const TOMORROW_API_KEY = process.env.TOMORROW_API_KEY;
 const TOMORROW_BASE_URL = 'https://api.tomorrow.io/v4';
 
-// Validate API key
+// Validate API keys
 if (!TOMORROW_API_KEY) {
   console.warn('TOMORROW_API_KEY not found in environment variables. Weather API will use fallback data.');
+}
+
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('GEMINI_API_KEY not found in environment variables. AI recommendations will use fallback data.');
 }
 
 // Function to geocode location string to coordinates
@@ -191,7 +196,7 @@ function getWeatherDescription(weatherCode) {
 }
 
 // Function to provide enhanced fallback weather data when API fails
-function getEnhancedFallbackWeatherData(locationName, originalLocation, isRateLimited) {
+async function getEnhancedFallbackWeatherData(locationName, originalLocation, isRateLimited) {
   // Get seasonal weather patterns for India (October is post-monsoon)
   const currentMonth = new Date().getMonth(); // October = 9
   const isPostMonsoon = currentMonth >= 9 && currentMonth <= 11; // Oct, Nov, Dec
@@ -249,7 +254,7 @@ function getEnhancedFallbackWeatherData(locationName, originalLocation, isRateLi
       isToday: index === 0
     })),
     alerts: [],
-    recommendations: getRealisticFarmingRecommendations(baseTemp, humidity, precipitationChance, isPostMonsoon, isRateLimited),
+    recommendations: await getEnhancedRecommendations(locationName, baseTemp, humidity, precipitationChance, isPostMonsoon, isRateLimited),
     lastUpdated: new Date().toISOString()
   };
 }
@@ -275,6 +280,38 @@ function getRealisticWeatherCode(hour, isPostMonsoon) {
     return Math.random() > 0.6 ? 1101 : 1000; // Partly cloudy or clear
   }
   return Math.random() > 0.5 ? 1101 : 1102; // Partly cloudy or mostly cloudy
+}
+
+// Enhanced recommendations using Gemini AI when available
+async function getEnhancedRecommendations(locationName, temp, humidity, precipChance, isPostMonsoon, isRateLimited) {
+  try {
+    // Try to get AI-powered recommendations first
+    const mockWeatherData = {
+      current: {
+        temperature: temp,
+        humidity: humidity,
+        description: isPostMonsoon ? 'Post-monsoon conditions' : 'Seasonal weather'
+      },
+      forecast: [
+        {
+          tempMax: temp + 2,
+          tempMin: temp - 3,
+          precipitationProbability: precipChance,
+          description: precipChance > 40 ? 'Possible showers' : 'Partly cloudy'
+        }
+      ]
+    };
+    
+    const aiRecommendations = await generateSmartRecommendations(mockWeatherData, locationName);
+    if (aiRecommendations && aiRecommendations.length > 0) {
+      return aiRecommendations;
+    }
+  } catch (error) {
+    console.warn('Gemini AI unavailable for fallback recommendations, using basic ones:', error.message);
+  }
+  
+  // Fallback to basic recommendations
+  return getRealisticFarmingRecommendations(temp, humidity, precipChance, isPostMonsoon, isRateLimited);
 }
 
 // Enhanced farming recommendations
@@ -464,7 +501,7 @@ export async function GET(request) {
       console.log('Weather API key not available, using fallback data');
       return NextResponse.json({
         success: true,
-        data: getEnhancedFallbackWeatherData(coords.name, location, false),
+        data: await getEnhancedFallbackWeatherData(coords.name, location, false),
         fallback: true,
         rateLimited: false
       });
@@ -488,7 +525,7 @@ export async function GET(request) {
       // Return enhanced fallback weather data with realistic farming recommendations
       return NextResponse.json({
         success: true,
-        data: getEnhancedFallbackWeatherData(coords.name, location, isRateLimited),
+        data: await getEnhancedFallbackWeatherData(coords.name, location, isRateLimited),
         fallback: true,
         rateLimited: isRateLimited
       });
@@ -526,8 +563,35 @@ export async function GET(request) {
       isToday: index === 0
     }));
     
-    // Generate farming recommendations
-    const recommendations = getFarmingRecommendations(currentData, forecastData);
+    // Prepare weather data for Gemini AI
+    const weatherDataForAI = {
+      current,
+      forecast: forecastArray,
+      alerts: alertsData.alerts || []
+    };
+    
+    // Generate AI-powered farming recommendations using Gemini
+    let recommendations = [];
+    try {
+      const geminiRecommendations = await generateSmartRecommendations(
+        weatherDataForAI, 
+        coords.name, 
+        searchParams.get('crops') // Optional crops parameter
+      );
+      
+      // Combine AI recommendations with basic weather-based ones
+      const basicRecommendations = getFarmingRecommendations(currentData, forecastData);
+      
+      // Prioritize Gemini recommendations, fall back to basic ones if needed
+      recommendations = geminiRecommendations.length > 0 
+        ? geminiRecommendations 
+        : basicRecommendations;
+        
+    } catch (error) {
+      console.error('Error generating AI recommendations:', error);
+      // Fallback to basic recommendations
+      recommendations = getFarmingRecommendations(currentData, forecastData);
+    }
     
     return NextResponse.json({
       success: true,
@@ -536,7 +600,8 @@ export async function GET(request) {
         forecast: forecastArray,
         alerts: alertsData.alerts || [],
         recommendations,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        aiPowered: recommendations.length > 0 && recommendations[0].source === 'gemini'
       }
     });
     
