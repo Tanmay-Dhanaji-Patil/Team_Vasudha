@@ -230,7 +230,7 @@ export default function Dashboard({ user, onLogout }) {
                 <span className="text-white font-bold text-lg">🌾</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Krishi Samadhanam</h1>
+                <h1 className="text-xl font-bold text-gray-900">Vasu Vaidya</h1>
                 <p className="text-sm text-gray-500">Your Farming Companion</p>
               </div>
             </div>
