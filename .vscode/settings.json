@@ -1,0 +1,9 @@
+{
+  // Ignore unknown at-rules from Tailwind/PostCSS (e.g. @apply, @custom-variant, @theme)
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  // Optional: help the Tailwind extension if installed
+  "tailwindCSS.experimental.configFile": "./tailwind.config.js"
+}

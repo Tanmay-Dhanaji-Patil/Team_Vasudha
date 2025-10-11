@@ -1,19 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import WeatherCard from "@/components/utils/WeatherCard";
 
 export default function Dashboard({ user, onLogout }) {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "weather",
-      title: "Weather Alert",
-      message: "Rain expected tomorrow, avoid pesticide spraying.",
-      time: "2 hours ago",
-      priority: "high",
-      action: "Take Action"
-    },
+  const [notifications, setNotifications] = useState([]);
+  const [weatherRecommendations, setWeatherRecommendations] = useState([]);
+  
+  const staticNotifications = [
     {
       id: 2,
       type: "market",
@@ -41,7 +36,16 @@ export default function Dashboard({ user, onLogout }) {
       priority: "medium",
       action: null
     }
-  ]);
+  ];
+
+  // Fetch weather recommendations
+  useEffect(() => {
+    if (user?.location) {
+      fetchWeatherRecommendations(user.location);
+    } else {
+      setNotifications(staticNotifications);
+    }
+  }, [user]);
 
   const [tasks, setTasks] = useState([
     {
@@ -83,12 +87,89 @@ export default function Dashboard({ user, onLogout }) {
     setNotifications(notifications.filter(n => n.id !== notificationId));
   };
 
+  const handleNotificationAction = (notification) => {
+    if (notification.action === 'Refresh Weather' || notification.action === 'Check Later') {
+      // Refresh weather data
+      if (user?.location) {
+        fetchWeatherRecommendations(user.location);
+      }
+    } else if (notification.action === 'Monitor Soil' || notification.action === 'Adjust Irrigation') {
+      // You can add specific actions for different notification types here
+      console.log(`Action: ${notification.action} for ${notification.title}`);
+    }
+  };
+
+  const fetchWeatherRecommendations = async (location) => {
+    try {
+      const response = await fetch(`/api/weather?location=${encodeURIComponent(location)}`);
+      const data = await response.json();
+      
+      if (data.success && data.data.recommendations && data.data.recommendations.length > 0) {
+        const weatherNotifications = data.data.recommendations.map((rec, index) => ({
+          id: `weather_${index + 1}_${Date.now()}`, // Add timestamp to ensure unique IDs
+          type: "weather",
+          subType: rec.type,
+          title: getWeatherAlertTitle(rec.type),
+          message: rec.message,
+          time: data.fallback ? "Estimated" : "Real-time",
+          priority: rec.priority,
+          action: rec.action,
+          isWeatherAlert: true,
+          isFallback: data.fallback
+        }));
+        
+        setWeatherRecommendations(weatherNotifications);
+        setNotifications([...weatherNotifications, ...staticNotifications]);
+      } else {
+        const generalWeatherNotification = [{
+          id: `weather_general_${Date.now()}`,
+          type: "weather",
+          subType: "general",
+          title: "Weather Update",
+          message: data.fallback ? 
+            "Weather service busy. Using seasonal estimates for your region." :
+            "Current weather conditions are favorable for farming activities.",
+          time: data.fallback ? "Estimated" : "Real-time",
+          priority: "low",
+          action: data.fallback ? "Refresh Weather" : null,
+          isWeatherAlert: true,
+          isFallback: data.fallback
+        }];
+        
+        setWeatherRecommendations(generalWeatherNotification);
+        setNotifications([...generalWeatherNotification, ...staticNotifications]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch weather recommendations:', error);
+      setNotifications(staticNotifications);
+    }
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high': return 'text-red-600 bg-red-50 border-red-200';
       case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
       default: return 'text-green-600 bg-green-50 border-green-200';
     }
+  };
+
+  const getWeatherAlertColor = (notification) => {
+    if (notification.subType === 'heat' && notification.priority === 'high') {
+      return 'text-red-600 bg-red-50 border-red-200';
+    }
+    if (notification.subType === 'irrigation' || notification.subType === 'humidity') {
+      return 'text-blue-600 bg-blue-50 border-blue-200';
+    }
+    if (notification.subType === 'wind') {
+      return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+    if (notification.subType === 'pesticide') {
+      return 'text-orange-600 bg-orange-50 border-orange-200';
+    }
+    if (notification.subType === 'general') {
+      return 'text-sky-600 bg-sky-50 border-sky-200';
+    }
+    return getPriorityColor(notification.priority);
   };
 
   const getTaskIcon = (type) => {
@@ -104,18 +185,37 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'weather':
-        return '⛈️';
-      case 'market':
-        return '📈';
-      case 'soil':
-        return '🌱';
-      case 'irrigation':
-        return '💧';
-      default:
-        return '🔔';
+  const getWeatherAlertTitle = (alertType) => {
+    switch (alertType) {
+      case 'irrigation': return 'Irrigation Guidance';
+      case 'pesticide': return 'Pesticide Alert';
+      case 'heat': return 'Heat Warning';
+      case 'wind': return 'Wind Advisory';
+      case 'humidity': return 'Humidity Alert';
+      case 'planting': return 'Planting Recommendation';
+      case 'general': return 'Weather Service';
+      default: return 'Weather Alert';
+    }
+  };
+
+  const getNotificationIcon = (notification) => {
+    if (notification.type === 'weather') {
+      switch (notification.subType) {
+        case 'irrigation': return '💧';
+        case 'pesticide': return '🚫';
+        case 'heat': return '🌡️';
+        case 'wind': return '💨';
+        case 'humidity': return '�';
+        case 'general': return '🌤️';
+        default: return '⛈️';
+      }
+    }
+    
+    switch (notification.type) {
+      case 'market': return '📈';
+      case 'soil': return '🌱';
+      case 'irrigation': return '💧';
+      default: return '🔔';
     }
   };
 
@@ -157,10 +257,16 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Weather Card */}
+          <div className="lg:col-span-1">
+            <WeatherCard user={user} />
+          </div>
           
           {/* Crop Calendar & Reminders */}
-          <div className="bg-white rounded-lg shadow-sm border">
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm border">
             <div className="p-4 border-b">
               <div className="flex items-center gap-2">
                 <span className="text-green-600">📅</span>
@@ -214,35 +320,55 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           </div>
 
+          </div>
+
           {/* Smart Notifications */}
-          <div className="bg-white rounded-lg shadow-sm border">
-            <div className="p-4 border-b">
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600">🔔</span>
-                <h2 className="text-lg font-semibold text-gray-900">Smart Notifications</h2>
-                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{notifications.length}</span>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm border">
+              <div className="p-4 border-b">
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600">🔔</span>
+                  <h2 className="text-lg font-semibold text-gray-900">Smart Notifications</h2>
+                  <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{notifications.length}</span>
+                </div>
               </div>
-            </div>
             <div className="p-4 space-y-3">
               {notifications.map((notification) => (
-                <div key={notification.id} className={`border rounded-lg p-4 ${getPriorityColor(notification.priority)}`}>
+                <div key={notification.id} className={`border rounded-lg p-4 ${
+                  notification.isWeatherAlert ? getWeatherAlertColor(notification) : getPriorityColor(notification.priority)
+                }`}>
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <span className="text-xl">{getNotificationIcon(notification.type)}</span>
+                      <span className="text-xl">{getNotificationIcon(notification)}</span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium text-sm">{notification.title}</h3>
+                          {notification.isWeatherAlert && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                              Weather
+                            </span>
+                          )}
                           <span className={`text-xs px-2 py-1 rounded-full ${
-                            notification.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                            notification.priority === 'high' ? 'bg-red-100 text-red-700' : 
+                            notification.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-green-100 text-green-700'
                           }`}>
-                            {notification.priority === 'high' ? 'High' : 'Medium'}
+                            {notification.priority === 'high' ? 'High' : 
+                             notification.priority === 'medium' ? 'Medium' : 'Low'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-700 mb-2">{notification.message}</p>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">{notification.time}</span>
                           {notification.action && (
-                            <button className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">
+                            <button 
+                              onClick={() => handleNotificationAction(notification)}
+                              className={`text-xs px-2 py-1 rounded transition-colors ${
+                                notification.isWeatherAlert 
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
+                            >
                               {notification.action}
                             </button>
                           )}
@@ -258,6 +384,7 @@ export default function Dashboard({ user, onLogout }) {
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>

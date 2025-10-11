@@ -4,8 +4,119 @@ import { useState } from "react";
 import Dashboard from "@/components/Dashboard";
 import ValueChart from "@/components/utils/ValueChart";
 import ChartsContainer from "@/components/utils/ChartsContainer";
+import AuthForm from "@/components/AuthForm";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
+
+// Send Report Button Component
+function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicFertilizers, inorganicPrices, fertilizerType }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailStatus, setEmailStatus] = useState('');
+
+  const handleSendReport = async () => {
+    setIsLoading(true);
+    setEmailStatus('');
+
+    try {
+      // Group samples by crop for analysis
+      const cropGroups = {};
+      samples.forEach(sample => {
+        if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
+        cropGroups[sample.crop].push(sample);
+      });
+
+      // Calculate total costs
+      
+      const getStandardValues = (cropName) => cropOptions.find(c => c.name === cropName)?.values || cropOptions[0].values;
+      
+      // Use selected fertilizer type for pricing
+      const prices = fertilizerType === 'organic' ? 
+        { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
+        { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
+      
+      let totalCost = 0;
+      Object.entries(cropGroups).forEach(([cropName, cropSamples]) => {
+        const std = getStandardValues(cropName);
+        let cropNitrogen = 0, cropPhosphorous = 0, cropPotassium = 0;
+        cropSamples.forEach(sample => {
+          cropNitrogen += Math.max(0, std.nitrogen - sample.nitrogen);
+          cropPhosphorous += Math.max(0, std.phosphorous - sample.phosphorous);
+          cropPotassium += Math.max(0, std.potassium - sample.potassium);
+        });
+        totalCost += cropNitrogen * prices.nitrogen + cropPhosphorous * prices.phosphorous + cropPotassium * prices.potassium;
+      });
+
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          samples,
+          cropGroups,
+          totalCost,
+          fertilizerType,
+          organicFertilizers,
+          inorganicFertilizers,
+          reportData: {
+            totalSamples: samples.length,
+            crops: Object.keys(cropGroups),
+            generatedDate: new Date().toISOString()
+          }
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setEmailStatus(`✅ Success! Report sent to ${result.emails.length} email(s): ${result.emails.join(', ')}`);
+      } else {
+        setEmailStatus(`❌ Error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending report:', error);
+      setEmailStatus(`❌ Error: Failed to send report. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <Button 
+        className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${
+          isLoading 
+            ? 'bg-gray-400 cursor-not-allowed' 
+            : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
+        } text-white font-semibold`}
+        onClick={handleSendReport}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Sending Report...
+          </>
+        ) : (
+          '📧 Send Report'
+        )}
+      </Button>
+      
+      {emailStatus && (
+        <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${
+          emailStatus.includes('Success') 
+            ? 'bg-green-100 text-green-800 border border-green-200' 
+            : 'bg-red-100 text-red-800 border border-red-200'
+        }`}>
+          {emailStatus}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Chart for each sample input
 function SampleBarChart({ sample, standard }) {
@@ -25,7 +136,7 @@ function SampleBarChart({ sample, standard }) {
         <BarChart data={chartData} barCategoryGap={30} barGap={12}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" fontSize={16} />
-          <YAxis fontSize={16} />
+          <YAxis fontSize={16} domain={[0, 200]} />
           <Tooltip />
           <Legend wrapperStyle={{ fontSize: '16px' }} />
           <Bar dataKey="Standard" fill="#fbb02d" radius={[12, 12, 0, 0]} />
@@ -40,28 +151,54 @@ export default function Home() {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthForm, setShowAuthForm] = useState(false);
-  const [isSignUpMode, setIsSignUpMode] = useState(false);
-  const [authForm, setAuthForm] = useState({ 
-    username: '', 
-    password: '', 
-    confirmPassword: '', 
-    name: '', 
-    location: '' 
-  });
-  const [user, setUser] = useState(null);
 
-  // Crop options and their standard values
+  // Crop options and fertilizer data
   const cropOptions = [
     { name: "Wheat", values: { nitrogen: 90, phosphorous: 45, potassium: 45, temperature: 25, moisture: 15, ph: 7.0 } },
     { name: "Rice", values: { nitrogen: 110, phosphorous: 50, potassium: 60, temperature: 28, moisture: 20, ph: 6.5 } },
     { name: "Maize", values: { nitrogen: 80, phosphorous: 40, potassium: 50, temperature: 24, moisture: 12, ph: 6.8 } },
-    // Add more crops as needed
   ];
 
-  // State for all samples entered by user
+  // Organic fertilizer data based on the provided table
+  const organicFertilizers = {
+    nitrogen: [
+      { name: "Neem Cake Fertilizer", form: "Granules", price: 225, notes: "Natural source of nitrogen, improves soil microbial activity" },
+      { name: "Bio NPK Liquid Fertilizer", form: "Liquid", price: 150, notes: "Microbial synthesis of nitrogen, promotes soil health" }
+    ],
+    phosphorous: [
+      { name: "Bone Meal", form: "Powder/Granules", price: 325, notes: "Slow release phosphorus source, improves root development" },
+      { name: "Rock Phosphate", form: "Granules", price: 275, notes: "Natural mineral phosphate, slow nutrient release" }
+    ],
+    potassium: [
+      { name: "Wood Ash", form: "Powder", price: 0, notes: "Rich in potash, can be collected from burnt wood" },
+      { name: "Seaweed/Kelp Meal", form: "Powder/Granules", price: 400, notes: "Provides potassium and micronutrients, supports plant stress tolerance" }
+    ]
+  };
+
+  // Inorganic fertilizer data with specific names and prices
+  const inorganicFertilizers = {
+    nitrogen: [
+      { name: "Urea", form: "Granules/Pellets", npk: "46-0-0", price: 5.5, notes: "Most widely used nitrogen fertilizer" },
+      { name: "Ammonium Sulfate", form: "Granules", npk: "21-0-0 + Sulfur", price: 9, notes: "Provides nitrogen and sulfur, used for alkaline soils" }
+    ],
+    phosphorous: [
+      { name: "Diammonium Phosphate (DAP)", form: "Granules/Powder", npk: "18-46-0", price: 27.5, notes: "High phosphorus content, also supplies nitrogen" },
+      { name: "Single Superphosphate (SSP)", form: "Granules/Powder", npk: "0-16-0 + Calcium", price: 9, notes: "Provides phosphorus and calcium" }
+    ],
+    potassium: [
+      { name: "Potassium Chloride (MOP)", form: "Granules/Powder", npk: "0-0-60", price: 21, notes: "Most common potassium fertilizer" },
+      { name: "Potassium Sulfate", form: "Granules/Powder", npk: "0-0-50 + Sulfur", price: 37.5, notes: "Provides potassium and sulfur, used for sensitive crops" }
+    ]
+  };
+
+  // Inorganic fertilizer prices (existing - keeping for backward compatibility)
+  const inorganicPrices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
+  const [user, setUser] = useState(null);  // State for all samples entered by user
   const [samples, setSamples] = useState([]);
-  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '' });
+  const [form, setForm] = useState({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '', email: '' });
   const [finished, setFinished] = useState(false);
+  const [showFertilizerModal, setShowFertilizerModal] = useState(false);
+  const [fertilizerType, setFertilizerType] = useState(null); // 'organic' or 'inorganic'
   const [selectedCrop, setSelectedCrop] = useState(cropOptions[0].name);
 
   // Get standard values for selected crop
@@ -76,87 +213,58 @@ export default function Home() {
   // Handle form submit to add sample
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    if (!form.day) return;
+
+    // Basic validation
+    if (!form.day || !form.day.trim()) {
+      alert('Please enter a sample number (e.g. S1)');
+      return;
+    }
+    if (!form.email || !form.email.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    // Safely parse numeric inputs; fall back to 0 if parsing fails
+    const safeNumber = (v) => {
+      const n = parseFloat(String(v).trim());
+      return Number.isFinite(n) ? n : 0;
+    };
+
     setSamples((prev) => [...prev, {
       day: form.day,
       crop: form.crop,
-      nitrogen: Number(form.nitrogen),
-      phosphorous: Number(form.phosphorous),
-      potassium: Number(form.potassium),
-      temperature: Number(form.temperature),
-      moisture: Number(form.moisture),
-      ph: Number(form.ph)
+      nitrogen: safeNumber(form.nitrogen),
+      phosphorous: safeNumber(form.phosphorous),
+      potassium: safeNumber(form.potassium),
+      temperature: safeNumber(form.temperature),
+      moisture: safeNumber(form.moisture),
+      ph: safeNumber(form.ph),
+      email: form.email.trim()
     }]);
-    setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '' });
+
+    setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', ph: '', email: '' });
   };
 
-  // Handle authentication form changes
-  const handleAuthFormChange = (e) => {
-    const { name, value } = e.target;
-    setAuthForm((prev) => ({ ...prev, [name]: value }));
+  // Handle successful login
+  const handleLogin = (user) => {
+    setIsAuthenticated(true);
+    setUser(user);
+    setShowAuthForm(false);
+    alert(`Welcome back, ${user.name}!`);
   };
 
-  // Handle login/signup
-  const handleAuth = (e) => {
-    e.preventDefault();
-    const { username, password, confirmPassword, name, location } = authForm;
-    
-    if (isSignUpMode) {
-      // Sign-up validation
-      if (!name.trim()) {
-        alert('Please enter your name!');
-        return;
-      }
-      if (!location.trim()) {
-        alert('Please enter your location!');
-        return;
-      }
-      if (password !== confirmPassword) {
-        alert('Passwords do not match!');
-        return;
-      }
-      if (name.length < 2) {
-        alert('Name must be at least 2 characters long!');
-        return;
-      }
-      if (password.length < 6) {
-        alert('Password must be at least 6 characters long!');
-        return;
-      }
-      // For demo, we'll accept any valid sign-up and log them in
-      setIsAuthenticated(true);
-      setUser({ 
-        username: name.toLowerCase().replace(/\s+/g, ''), 
-        name: name,
-        location: location 
-      });
-      setShowAuthForm(false);
-      setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
-      setIsSignUpMode(false);
-      alert(`Account created successfully! Welcome ${name}!`);
-    } else {
-      // Login validation - check for crop/crop1234
-      if (username === 'crop' && password === 'crop1234') {
-        setIsAuthenticated(true);
-        setUser({ username: 'crop', name: 'Crop User', location: 'Demo Farm' });
-        setShowAuthForm(false);
-        setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
-      } else {
-        alert('Invalid credentials! Use username: crop, password: crop1234');
-      }
-    }
+  // Handle successful signup
+  const handleSignup = (user) => {
+    setIsAuthenticated(true);
+    setUser(user);
+    setShowAuthForm(false);
+    alert(`Account created successfully! Welcome ${user.name}!`);
   };
 
   // Handle logout
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUser(null);
-  };
-
-  // Toggle between login and sign-up
-  const toggleAuthMode = () => {
-    setIsSignUpMode(!isSignUpMode);
-    setAuthForm({ username: '', password: '', confirmPassword: '', name: '', location: '' });
   };
 
   // If user is authenticated, show the dashboard
@@ -199,167 +307,13 @@ export default function Home() {
         )}
       </div>
 
-      {/* Authentication Modal */}
-      {showAuthForm && !isAuthenticated && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-center mb-6">
-              {isSignUpMode ? 'Sign Up' : 'Login'}
-            </h2>
-            <form onSubmit={handleAuth} className="space-y-4">
-              {isSignUpMode ? (
-                <>
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={authForm.name}
-                      onChange={handleAuthFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter your full name"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      id="location"
-                      name="location"
-                      value={authForm.location}
-                      onChange={handleAuthFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter your city/farm location"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={authForm.password}
-                      onChange={handleAuthFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Choose a password (min 6 characters)"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm Password
-                    </label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={authForm.confirmPassword}
-                      onChange={handleAuthFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Confirm your password"
-                      required
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={authForm.username}
-                      onChange={handleAuthFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter username (crop)"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={authForm.password}
-                      onChange={handleAuthFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter password (crop1234)"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-              <div className="flex gap-3">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  {isSignUpMode ? 'Sign Up' : 'Login'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAuthForm(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-            
-            {/* Toggle between Login and Sign Up */}
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={toggleAuthMode}
-                className="text-blue-600 hover:text-blue-800 text-sm underline"
-              >
-                {isSignUpMode 
-                  ? "Already have an account? Login here" 
-                  : "Don't have an account? Sign up here"
-                }
-              </button>
-            </div>
-
-            {!isSignUpMode && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                <p className="text-xs text-gray-600 text-center">
-                  <strong>Demo Credentials:</strong><br />
-                  Username: <code>crop</code><br />
-                  Password: <code>crop1234</code>
-                </p>
-              </div>
-            )}
-
-            {isSignUpMode && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-md">
-                <p className="text-xs text-blue-600 text-center">
-                  <strong>Sign Up Requirements:</strong><br />
-                  • Name: minimum 2 characters<br />
-                  • Location: required field<br />
-                  • Password: minimum 6 characters<br />
-                  • Passwords must match
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Modern Authentication Form */}
+      <AuthForm
+        isOpen={showAuthForm && !isAuthenticated}
+        onLogin={handleLogin}
+        onSignup={handleSignup}
+        onClose={() => setShowAuthForm(false)}
+      />
       {/* User Input Form styled as dashboard top card */}
       <section className="relative py-8 px-4 flex flex-col items-center justify-center">
         {!finished && (
@@ -374,21 +328,33 @@ export default function Home() {
                   ))}
                 </select>
               </div>
+
               <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
-              <input name="nitrogen" type="number" value={form.nitrogen} onChange={handleFormChange} placeholder="Nitrogen" className="border rounded px-4 py-2" required />
-              <input name="phosphorous" type="number" value={form.phosphorous} onChange={handleFormChange} placeholder="Phosphorous" className="border rounded px-4 py-2" required />
-              <input name="potassium" type="number" value={form.potassium} onChange={handleFormChange} placeholder="Potassium" className="border rounded px-4 py-2" required />
-              <input name="temperature" type="number" value={form.temperature} onChange={handleFormChange} placeholder="Temperature" className="border rounded px-4 py-2" required />
-              <input name="moisture" type="number" value={form.moisture} onChange={handleFormChange} placeholder="Moisture" className="border rounded px-4 py-2" required />
-              <input name="ph" type="number" step="0.1" value={form.ph} onChange={handleFormChange} placeholder="Soil pH" className="border rounded px-4 py-2" required />
+
+              {/* Full-width email input so users can enter the recipient address for the report */}
+              <div className="col-span-2">
+                <label htmlFor="email" className="sr-only">Email for report</label>
+                <input name="email" id="email" type="email" value={form.email} onChange={handleFormChange} placeholder="Email for report (you@example.com)" className="w-full border rounded px-4 py-2" required />
+              </div>
+              <input name="nitrogen" type="number" min="0" step="0.1" value={form.nitrogen} onChange={handleFormChange} placeholder="Nitrogen" className="border rounded px-4 py-2" />
+              <input name="phosphorous" type="number" min="0" step="0.1" value={form.phosphorous} onChange={handleFormChange} placeholder="Phosphorous" className="border rounded px-4 py-2" />
+              <input name="potassium" type="number" min="0" step="0.1" value={form.potassium} onChange={handleFormChange} placeholder="Potassium" className="border rounded px-4 py-2" />
+              <input name="temperature" type="number" min="-50" max="100" step="0.1" value={form.temperature} onChange={handleFormChange} placeholder="Temperature" className="border rounded px-4 py-2" />
+              <input name="moisture" type="number" min="0" max="100" step="0.1" value={form.moisture} onChange={handleFormChange} placeholder="Moisture" className="border rounded px-4 py-2" />
+              <input name="ph" type="number" min="0" max="14" step="0.1" value={form.ph} onChange={handleFormChange} placeholder="Soil pH" className="border rounded px-4 py-2" />
               <div className="col-span-2 flex gap-4 justify-center">
                 <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 transition">Add Sample</button>
-                <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition" onClick={() => setFinished(true)} disabled={samples.length === 0}>Finish</button>
+                <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition" onClick={() => setShowFertilizerModal(true)} disabled={samples.length === 0}>Finish</button>
               </div>
             </form>
             {samples.length > 0 && (
-              <div className="mt-2 text-lg text-green-700 font-semibold">
-                {samples.length} sample(s) added.
+              <div className="mt-4">
+                <div className="text-lg text-green-700 font-semibold mb-3">
+                  {samples.length} sample(s) added.
+                </div>
+                <div className="flex justify-center">
+                  <SendReportButton samples={samples} cropOptions={cropOptions} organicFertilizers={organicFertilizers} inorganicFertilizers={inorganicFertilizers} inorganicPrices={inorganicPrices} fertilizerType={fertilizerType} />
+                </div>
               </div>
             )}
           </div>
@@ -421,6 +387,72 @@ export default function Home() {
           );
         })}
 
+        {/* Fertilizer Recommendation Table */}
+        {finished && fertilizerType && (() => {
+          const fertilizers = fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers;
+          const fertilizerTypeName = fertilizerType === 'organic' ? 'Organic' : 'Inorganic';
+          
+          return (
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 mb-8">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  {fertilizerTypeName} Fertilizer Recommendations
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Recommended {fertilizerTypeName.toLowerCase()} fertilizers for your soil analysis
+                </p>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-center border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100 dark:bg-gray-700">
+                      <th className="py-4 px-4 border border-gray-300 dark:border-gray-600 font-semibold text-gray-900 dark:text-white">Nutrient</th>
+                      <th className="py-4 px-4 border border-gray-300 dark:border-gray-600 font-semibold text-gray-900 dark:text-white">Fertilizer Name</th>
+                      <th className="py-4 px-4 border border-gray-300 dark:border-gray-600 font-semibold text-gray-900 dark:text-white">Form</th>
+                      <th className="py-4 px-4 border border-gray-300 dark:border-gray-600 font-semibold text-gray-900 dark:text-white">NPK Ratio</th>
+                      <th className="py-4 px-4 border border-gray-300 dark:border-gray-600 font-semibold text-gray-900 dark:text-white">Price (₹/kg)</th>
+                      <th className="py-4 px-4 border border-gray-300 dark:border-gray-600 font-semibold text-gray-900 dark:text-white">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fertilizers.nitrogen.map((fertilizer, index) => (
+                      <tr key={`nitrogen-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">Nitrogen (N)</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">{fertilizer.name}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{fertilizer.form}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{fertilizer.npk || 'High Nitrogen'}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold">₹{fertilizer.price}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm">{fertilizer.notes}</td>
+                      </tr>
+                    ))}
+                    {fertilizers.phosphorous.map((fertilizer, index) => (
+                      <tr key={`phosphorous-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">Phosphorous (P)</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">{fertilizer.name}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{fertilizer.form}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{fertilizer.npk || 'High Phosphorous'}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold">₹{fertilizer.price}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm">{fertilizer.notes}</td>
+                      </tr>
+                    ))}
+                    {fertilizers.potassium.map((fertilizer, index) => (
+                      <tr key={`potassium-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">Potassium (K)</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">{fertilizer.name}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{fertilizer.form}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{fertilizer.npk || 'High Potassium'}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold">₹{fertilizer.price}</td>
+                        <td className="py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm">{fertilizer.notes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Required Addition Graphs after finish */}
         {/* Group samples by crop and show individual graphs for each crop */}
         {finished && (() => {
@@ -430,8 +462,10 @@ export default function Home() {
             if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
             cropGroups[sample.crop].push(sample);
           });
-          // Prices per kg for nutrients
-          const prices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
+          // Prices per kg for nutrients based on selected fertilizer type
+          const prices = fertilizerType === 'organic' ? 
+            { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
+            { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
           // Render graphs for each crop
           return Object.entries(cropGroups).map(([cropName, cropSamples], i) => {
             const std = getStandardValues(cropName);
@@ -454,7 +488,7 @@ export default function Home() {
                         <BarChart width={500} height={300} data={requiredAdditionData} barCategoryGap={30} barGap={12}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="month" fontSize={16} />
-                          <YAxis fontSize={16} />
+                          <YAxis fontSize={16} domain={[0, 200]} />
                           <Tooltip />
                           <Legend />
                           <Bar dataKey="required" fill="#F59E0B" radius={[12, 12, 0, 0]} name="Required Addition" />
@@ -469,15 +503,17 @@ export default function Home() {
         })()}
 
         {/* Overall summary table for all crops and samples */}
-        {finished && (() => {
+  {finished && (() => {
           // Group samples by crop
           const cropGroups = {};
           samples.forEach(sample => {
             if (!cropGroups[sample.crop]) cropGroups[sample.crop] = [];
             cropGroups[sample.crop].push(sample);
           });
-          // Prices per kg for nutrients
-          const prices = { nitrogen: 7, phosphorous: 8, potassium: 19 };
+          // Prices per kg for nutrients based on selected fertilizer type
+          const prices = fertilizerType === 'organic' ? 
+            { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
+            { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
           // Calculate totals
           let totalNitrogen = 0, totalPhosphorous = 0, totalPotassium = 0, totalCost = 0;
           const cropSummary = Object.entries(cropGroups).map(([cropName, cropSamples]) => {
@@ -537,6 +573,19 @@ export default function Home() {
         })()}
 
         {/* Advanced Analytics Dashboard */}
+        {/* Prompt to send report via email */}
+        {finished && samples.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8 text-center">
+            <h3 className="text-xl font-bold text-blue-700 mb-2">Send Report via Email</h3>
+            <p className="mb-4">Would you like to send the comprehensive soil analysis report to the following email(s)?</p>
+            <div className="mb-4 flex flex-wrap gap-2 justify-center">
+              {samples.map((s, idx) => (
+                <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{s.email}</span>
+              ))}
+            </div>
+            <SendReportButton samples={samples} cropOptions={cropOptions} organicFertilizers={organicFertilizers} inorganicFertilizers={inorganicFertilizers} inorganicPrices={inorganicPrices} fertilizerType={fertilizerType} />
+          </div>
+        )}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
             Advanced Analytics Dashboard
@@ -549,6 +598,61 @@ export default function Home() {
 
         {/* Fertilizer Analysis Section removed as per user request */}
       </section>
+
+      {/* Fertilizer Type Selection Modal */}
+      {showFertilizerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Select Fertilizer Type</h3>
+            <p className="text-gray-600 mb-6 text-center">Choose the type of fertilizer you plan to use for your crops:</p>
+            
+            <div className="space-y-4">
+              <button
+                onClick={() => {
+                  setFertilizerType('organic');
+                  setShowFertilizerModal(false);
+                  setFinished(true);
+                }}
+                className="w-full p-4 border-2 border-green-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all duration-200 text-left"
+              >
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-green-500 rounded-full mr-3"></div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">🌱 Organic Fertilizers</h4>
+                    <p className="text-sm text-gray-600">Natural, eco-friendly options like Neem Cake, Bone Meal, Wood Ash</p>
+                    <p className="text-xs text-green-600 mt-1">₹150-400 per kg</p>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setFertilizerType('inorganic');
+                  setShowFertilizerModal(false);
+                  setFinished(true);
+                }}
+                className="w-full p-4 border-2 border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 text-left"
+              >
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full mr-3"></div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">⚗️ Inorganic Fertilizers</h4>
+                    <p className="text-sm text-gray-600">Chemical fertilizers with precise NPK ratios</p>
+                    <p className="text-xs text-blue-600 mt-1">₹7-19 per kg</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+            
+            <button
+              onClick={() => setShowFertilizerModal(false)}
+              className="w-full mt-6 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
