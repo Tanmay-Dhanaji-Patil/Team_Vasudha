@@ -1,10 +1,6 @@
 {
   "/api/appointment/[id]/route": "app/api/appointment/[id]/route.js",
-  "/api/appointment/route": "app/api/appointment/route.js",
   "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/farmer-plots/route": "app/api/farmer-plots/route.js",
-  "/api/plot-details/route": "app/api/plot-details/route.js",
   "/api/weather/route": "app/api/weather/route.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js"
 }

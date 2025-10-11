@@ -1,0 +1,223 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+
+export default function PlanSowingModal({ notification, isOpen, onClose, onSuccess }) {
+  const [selectedCrop, setSelectedCrop] = useState('');
+  const [selectedPlot, setSelectedPlot] = useState('');
+  const [sowingDate, setSowingDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Rabi crops recommended for October sowing
+  const rabiCrops = [
+    { value: 'wheat', label: 'Wheat', icon: '🌾', description: 'Best for October-November sowing' },
+    { value: 'gram', label: 'Gram (Chickpea)', icon: '🫘', description: 'Ideal for October sowing' },
+    { value: 'mustard', label: 'Mustard', icon: '🌿', description: 'Perfect timing for October' },
+    { value: 'barley', label: 'Barley', icon: '🌾', description: 'Good yield potential' },
+    { value: 'lentil', label: 'Lentil', icon: '🫘', description: 'Nutritious and profitable' },
+    { value: 'pea', label: 'Pea', icon: '🫘', description: 'Early sowing recommended' }
+  ];
+
+  // Generate date options (next 30 days)
+  const generateDateOptions = () => {
+    const options = [];
+    const today = new Date();
+    
+    for (let i = 0; i <= 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const dateString = date.toISOString().split('T')[0];
+      const displayDate = date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      options.push({ value: dateString, label: displayDate });
+    }
+    return options;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedCrop || !sowingDate) {
+      alert('Please select a crop and sowing date');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Simulate API call for planning sowing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const sowingPlan = {
+        crop: selectedCrop,
+        plot: selectedPlot || 'Not specified',
+        sowingDate: sowingDate,
+        notes: notes,
+        notificationId: notification.id
+      };
+
+      console.log('Sowing plan created:', sowingPlan);
+      
+      // Show success message
+      alert(`Sowing plan created successfully! ${selectedCrop} scheduled for ${new Date(sowingDate).toLocaleDateString()}`);
+      
+      if (onSuccess) {
+        onSuccess(sowingPlan);
+      }
+      
+      onClose();
+      
+      // Reset form
+      setSelectedCrop('');
+      setSelectedPlot('');
+      setSowingDate('');
+      setNotes('');
+      
+    } catch (error) {
+      console.error('Error creating sowing plan:', error);
+      alert('Failed to create sowing plan. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Plan Sowing</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Notification Info */}
+          <div className="bg-blue-50 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">🌱</span>
+              <div>
+                <h3 className="font-medium text-gray-900">{notification.title}</h3>
+                <p className="text-sm text-gray-600">October is optimal for Rabi crop sowing</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700">{notification.message}</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Crop Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Select Crop for Sowing
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {rabiCrops.map((crop) => (
+                  <button
+                    key={crop.value}
+                    type="button"
+                    onClick={() => setSelectedCrop(crop.value)}
+                    className={`p-4 border-2 rounded-lg text-left transition-all duration-200 ${
+                      selectedCrop === crop.value
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-green-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-3">{crop.icon}</span>
+                      <div>
+                        <div className="font-medium text-gray-900">{crop.label}</div>
+                        <div className="text-xs text-gray-600">{crop.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Plot Selection (Optional) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Plot (Optional)
+              </label>
+              <input
+                type="text"
+                value={selectedPlot}
+                onChange={(e) => setSelectedPlot(e.target.value)}
+                placeholder="Enter plot number or name..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            {/* Sowing Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Sowing Date
+              </label>
+              <select
+                value={sowingDate}
+                onChange={(e) => setSowingDate(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                required
+              >
+                <option value="">Choose sowing date...</option>
+                {generateDateOptions().map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Additional Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any specific requirements or notes for sowing..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                rows="3"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                onClick={onClose}
+                className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading || !selectedCrop || !sowingDate}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Planning...
+                  </div>
+                ) : (
+                  'Create Sowing Plan'
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -6,6 +6,9 @@ import WeatherCard from "@/components/utils/WeatherCard";
 import Chatbot from "@/components/Chatbot";
 import PlotDetailsForm from "@/components/PlotDetailsForm";
 import AppointmentForm from "@/components/AppointmentForm";
+import RescheduleModal from "@/components/RescheduleModal";
+import PlanSowingModal from "@/components/PlanSowingModal";
+import SoilActionModal from "@/components/SoilActionModal";
 
 export default function Dashboard({ user, onLogout }) {
   const [notifications, setNotifications] = useState([]);
@@ -13,12 +16,26 @@ export default function Dashboard({ user, onLogout }) {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isPlotDetailsOpen, setIsPlotDetailsOpen] = useState(false);
   const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
+  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+  const [selectedTaskForReschedule, setSelectedTaskForReschedule] = useState(null);
+  const [isPlanSowingOpen, setIsPlanSowingOpen] = useState(false);
+  const [isSoilActionOpen, setIsSoilActionOpen] = useState(false);
+  const [selectedNotificationForAction, setSelectedNotificationForAction] = useState(null);
   const [profileImage, setProfileImage] = useState(user?.profileImage || null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showUploadSuccess, setShowUploadSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
   const staticNotifications = [
+    {
+      id: 1,
+      type: "planting",
+      title: "Planting Recommendation",
+      message: "October is optimal for Rabi crop sowing. Consider planting wheat, gram, mustard, and barley for best yields.",
+      time: "Real-time",
+      priority: "high",
+      action: "Plan Sowing"
+    },
     {
       id: 2,
       type: "market",
@@ -116,6 +133,14 @@ export default function Dashboard({ user, onLogout }) {
     } else if (notification.action === 'Monitor Soil' || notification.action === 'Adjust Irrigation') {
       // You can add specific actions for different notification types here
       console.log(`Action: ${notification.action} for ${notification.title}`);
+    } else if (notification.action === 'Plan Sowing') {
+      // Open Plan Sowing modal
+      setSelectedNotificationForAction(notification);
+      setIsPlanSowingOpen(true);
+    } else if (notification.action === 'Take Action') {
+      // Open Soil Action modal
+      setSelectedNotificationForAction(notification);
+      setIsSoilActionOpen(true);
     }
   };
 
@@ -235,6 +260,10 @@ export default function Dashboard({ user, onLogout }) {
       case 'market': return '📈';
       case 'soil': return '🌱';
       case 'irrigation': return '💧';
+      case 'planting': return '🌱';
+      case 'sowing': return '🌾';
+      case 'soil_action': return '🪨';
+      case 'reschedule': return '📅';
       default: return '🔔';
     }
   };
@@ -297,6 +326,62 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
+  // Action Modal Handlers
+  const handlePlanSowingSuccess = (sowingPlan) => {
+    console.log('Sowing plan created:', sowingPlan);
+    
+    // Show success notification
+    const newNotification = {
+      id: `sowing_plan_${Date.now()}`,
+      type: "sowing",
+      title: "Sowing Plan Created",
+      message: `${sowingPlan.crop} sowing scheduled for ${new Date(sowingPlan.sowingDate).toLocaleDateString()}`,
+      time: "Just now",
+      priority: "medium",
+      action: null
+    };
+    
+    setNotifications(prev => [newNotification, ...prev]);
+    
+    // Auto-dismiss notification after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== newNotification.id));
+    }, 5000);
+  };
+
+  const handleSoilActionSuccess = (soilAction) => {
+    console.log('Soil action planned:', soilAction);
+    
+    // Show success notification
+    const actionLabel = soilAction.action.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const newNotification = {
+      id: `soil_action_${Date.now()}`,
+      type: "soil_action",
+      title: "Soil Action Scheduled",
+      message: `${actionLabel} scheduled for ${new Date(soilAction.actionDate).toLocaleDateString()}`,
+      time: "Just now",
+      priority: "medium",
+      action: null
+    };
+    
+    setNotifications(prev => [newNotification, ...prev]);
+    
+    // Auto-dismiss notification after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== newNotification.id));
+    }, 5000);
+  };
+
+  const closePlanSowingModal = () => {
+    setIsPlanSowingOpen(false);
+    setSelectedNotificationForAction(null);
+  };
+
+  const closeSoilActionModal = () => {
+    setIsSoilActionOpen(false);
+    setSelectedNotificationForAction(null);
+  };
+
   // Loading Screen Component - Full video playback
   if (isLoading) {
     return (
@@ -341,7 +426,7 @@ export default function Dashboard({ user, onLogout }) {
                 <span className="text-white font-bold text-lg">🌾</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Krishi Samadhanam</h1>
+                <h1 className="text-xl font-bold text-gray-900">Vasu Vaidya</h1>
                 <p className="text-sm text-gray-500">Your Farming Companion</p>
               </div>
             </div>
@@ -705,6 +790,26 @@ export default function Dashboard({ user, onLogout }) {
             // You can add any success handling here
             console.log('Appointment booked successfully');
           }}
+        />
+      )}
+
+      {/* Plan Sowing Modal */}
+      {isPlanSowingOpen && selectedNotificationForAction && (
+        <PlanSowingModal
+          notification={selectedNotificationForAction}
+          isOpen={isPlanSowingOpen}
+          onClose={closePlanSowingModal}
+          onSuccess={handlePlanSowingSuccess}
+        />
+      )}
+
+      {/* Soil Action Modal */}
+      {isSoilActionOpen && selectedNotificationForAction && (
+        <SoilActionModal
+          notification={selectedNotificationForAction}
+          isOpen={isSoilActionOpen}
+          onClose={closeSoilActionModal}
+          onSuccess={handleSoilActionSuccess}
         />
       )}
     </div>
