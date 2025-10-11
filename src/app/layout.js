@@ -1,4 +1,5 @@
 import Navbar from "@/components/utils/Navbar";
+import ClientBody from "@/components/ClientBody";
 import "./globals.css";
 
 export const metadata = {
@@ -10,9 +11,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <Navbar />
-        {children}
+      <body suppressHydrationWarning={true}>
+        <ClientBody>
+          <Navbar />
+          {children}
+        </ClientBody>
       </body>
     </html>
   );

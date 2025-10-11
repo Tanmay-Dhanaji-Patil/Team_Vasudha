@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export default function PlanSowingModal({ notification, isOpen, onClose, onSuccess }) {
+export default function PlanSowingModal({ task, isOpen, onClose, onReschedule }) {
   const [selectedCrop, setSelectedCrop] = useState('');
   const [selectedPlot, setSelectedPlot] = useState('');
   const [sowingDate, setSowingDate] = useState('');
@@ -49,37 +49,60 @@ export default function PlanSowingModal({ notification, isOpen, onClose, onSucce
     setIsLoading(true);
     
     try {
-      // Simulate API call for planning sowing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const sowingPlan = {
-        crop: selectedCrop,
-        plot: selectedPlot || 'Not specified',
-        sowingDate: sowingDate,
-        notes: notes,
-        notificationId: notification.id
-      };
+      // Save sowing plan to database
+      const response = await fetch('/api/sowing-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          farmerId: 'demo-farmer-id', // Use a demo ID for testing
+          notificationId: task?.id || 'demo-notification',
+          cropType: selectedCrop,
+          cropLabel: rabiCrops.find(crop => crop.value === selectedCrop)?.label || selectedCrop,
+          plotNumber: selectedPlot,
+          sowingDate: sowingDate,
+          sowingTime: null,
+          notes: notes,
+          priority: 'high'
+        }),
+      });
 
-      console.log('Sowing plan created:', sowingPlan);
-      
-      // Show success message
-      alert(`Sowing plan created successfully! ${selectedCrop} scheduled for ${new Date(sowingDate).toLocaleDateString()}`);
-      
-      if (onSuccess) {
-        onSuccess(sowingPlan);
+      const result = await response.json();
+
+      if (result.success) {
+        const sowingPlan = {
+          crop: selectedCrop,
+          plot: selectedPlot || 'Not specified',
+          sowingDate: sowingDate,
+          notes: notes,
+          notificationId: task?.id || 'demo-notification',
+          sowingPlanId: result.sowingPlan.id
+        };
+
+        console.log('Sowing plan created:', sowingPlan);
+        
+        // Show success message
+        alert(`Sowing plan created successfully! ${selectedCrop} scheduled for ${new Date(sowingDate).toLocaleDateString()}`);
+        
+        if (onReschedule) {
+          onReschedule(sowingPlan);
+        }
+        
+        onClose();
+        
+        // Reset form
+        setSelectedCrop('');
+        setSelectedPlot('');
+        setSowingDate('');
+        setNotes('');
+        
+      } else {
+        alert(result.message || 'Failed to create sowing plan');
       }
-      
-      onClose();
-      
-      // Reset form
-      setSelectedCrop('');
-      setSelectedPlot('');
-      setSowingDate('');
-      setNotes('');
-      
     } catch (error) {
       console.error('Error creating sowing plan:', error);
-      alert('Failed to create sowing plan. Please try again.');
+      alert('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -106,11 +129,11 @@ export default function PlanSowingModal({ notification, isOpen, onClose, onSucce
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">🌱</span>
               <div>
-                <h3 className="font-medium text-gray-900">{notification.title}</h3>
+                <h3 className="font-medium text-gray-900">{task?.title || 'Planting Recommendation'}</h3>
                 <p className="text-sm text-gray-600">October is optimal for Rabi crop sowing</p>
               </div>
             </div>
-            <p className="text-sm text-gray-700">{notification.message}</p>
+            <p className="text-sm text-gray-700">{task?.message || 'October is optimal for Rabi crop sowing. Consider planting wheat, gram, mustard, and barley for best yields.'}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

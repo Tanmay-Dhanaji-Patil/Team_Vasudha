@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export default function SoilActionModal({ notification, isOpen, onClose, onSuccess }) {
+export default function SoilActionModal({ task, isOpen, onClose, onReschedule }) {
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedPlot, setSelectedPlot] = useState('');
   const [actionDate, setActionDate] = useState('');
@@ -103,39 +103,62 @@ export default function SoilActionModal({ notification, isOpen, onClose, onSucce
     setIsLoading(true);
     
     try {
-      // Simulate API call for soil action
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const soilAction = {
-        action: selectedAction,
-        plot: selectedPlot || 'Not specified',
-        actionDate: actionDate,
-        notes: notes,
-        notificationId: notification.id,
-        urgency: soilActions.find(a => a.value === selectedAction)?.urgency || 'medium'
-      };
+      // Save soil action to database
+      const response = await fetch('/api/soil-actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          farmerId: 'demo-farmer-id', // Use a demo ID for testing
+          notificationId: task?.id || 'demo-notification',
+          actionType: selectedAction,
+          actionLabel: soilActions.find(action => action.value === selectedAction)?.label || selectedAction,
+          plotNumber: selectedPlot,
+          actionDate: actionDate,
+          actionTime: null,
+          urgency: soilActions.find(action => action.value === selectedAction)?.urgency || 'medium',
+          notes: notes
+        }),
+      });
 
-      console.log('Soil action planned:', soilAction);
-      
-      // Show success message
-      const actionLabel = soilActions.find(a => a.value === selectedAction)?.label || 'Action';
-      alert(`${actionLabel} scheduled successfully for ${new Date(actionDate).toLocaleDateString()}`);
-      
-      if (onSuccess) {
-        onSuccess(soilAction);
+      const result = await response.json();
+
+      if (result.success) {
+        const soilAction = {
+          action: selectedAction,
+          plot: selectedPlot || 'Not specified',
+          actionDate: actionDate,
+          notes: notes,
+          notificationId: task?.id || 'demo-notification',
+          urgency: soilActions.find(a => a.value === selectedAction)?.urgency || 'medium',
+          soilActionId: result.soilAction.id
+        };
+
+        console.log('Soil action planned:', soilAction);
+        
+        // Show success message
+        const actionLabel = soilActions.find(a => a.value === selectedAction)?.label || 'Action';
+        alert(`${actionLabel} scheduled successfully for ${new Date(actionDate).toLocaleDateString()}`);
+        
+        if (onReschedule) {
+          onReschedule(soilAction);
+        }
+        
+        onClose();
+        
+        // Reset form
+        setSelectedAction('');
+        setSelectedPlot('');
+        setActionDate('');
+        setNotes('');
+        
+      } else {
+        alert(result.message || 'Failed to plan soil action');
       }
-      
-      onClose();
-      
-      // Reset form
-      setSelectedAction('');
-      setSelectedPlot('');
-      setActionDate('');
-      setNotes('');
-      
     } catch (error) {
       console.error('Error planning soil action:', error);
-      alert('Failed to plan soil action. Please try again.');
+      alert('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -162,11 +185,11 @@ export default function SoilActionModal({ notification, isOpen, onClose, onSucce
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">🌱</span>
               <div>
-                <h3 className="font-medium text-gray-900">{notification.title}</h3>
+                <h3 className="font-medium text-gray-900">{task?.title || 'Soil Health Alert'}</h3>
                 <p className="text-sm text-gray-600">Soil pH is low - immediate action recommended</p>
               </div>
             </div>
-            <p className="text-sm text-gray-700">{notification.message}</p>
+            <p className="text-sm text-gray-700">{task?.message || 'Your soil pH is low, recommended action available.'}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

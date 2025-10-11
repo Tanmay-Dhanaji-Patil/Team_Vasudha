@@ -151,7 +151,7 @@ export default function Dashboard({ user, onLogout }) {
       
       if (data.success && data.data.recommendations && data.data.recommendations.length > 0) {
         const weatherNotifications = data.data.recommendations.map((rec, index) => ({
-          id: `weather_${index + 1}_${Date.now()}`, // Add timestamp to ensure unique IDs
+          id: `weather_${index + 1}_${Math.floor(Math.random() * 1000000)}`, // Use random instead of Date.now()
           type: "weather",
           subType: rec.type,
           title: getWeatherAlertTitle(rec.type),
@@ -167,7 +167,7 @@ export default function Dashboard({ user, onLogout }) {
         setNotifications([...weatherNotifications, ...staticNotifications]);
       } else {
         const generalWeatherNotification = [{
-          id: `weather_general_${Date.now()}`,
+          id: `weather_general_${Math.floor(Math.random() * 1000000)}`,
           type: "weather",
           subType: "general",
           title: "Weather Update",
@@ -332,10 +332,10 @@ export default function Dashboard({ user, onLogout }) {
     
     // Show success notification
     const newNotification = {
-      id: `sowing_plan_${Date.now()}`,
+      id: `sowing_plan_${Math.floor(Math.random() * 1000000)}`,
       type: "sowing",
       title: "Sowing Plan Created",
-      message: `${sowingPlan.crop} sowing scheduled for ${new Date(sowingPlan.sowingDate).toLocaleDateString()}`,
+      message: `${sowingPlan.crop} sowing scheduled for ${sowingPlan.sowingDate}`,
       time: "Just now",
       priority: "medium",
       action: null
@@ -355,10 +355,10 @@ export default function Dashboard({ user, onLogout }) {
     // Show success notification
     const actionLabel = soilAction.action.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     const newNotification = {
-      id: `soil_action_${Date.now()}`,
+      id: `soil_action_${Math.floor(Math.random() * 1000000)}`,
       type: "soil_action",
       title: "Soil Action Scheduled",
-      message: `${actionLabel} scheduled for ${new Date(soilAction.actionDate).toLocaleDateString()}`,
+      message: `${actionLabel} scheduled for ${soilAction.actionDate}`,
       time: "Just now",
       priority: "medium",
       action: null
@@ -796,20 +796,20 @@ export default function Dashboard({ user, onLogout }) {
       {/* Plan Sowing Modal */}
       {isPlanSowingOpen && selectedNotificationForAction && (
         <PlanSowingModal
-          notification={selectedNotificationForAction}
+          task={selectedNotificationForAction}
           isOpen={isPlanSowingOpen}
           onClose={closePlanSowingModal}
-          onSuccess={handlePlanSowingSuccess}
+          onReschedule={handlePlanSowingSuccess}
         />
       )}
 
       {/* Soil Action Modal */}
       {isSoilActionOpen && selectedNotificationForAction && (
         <SoilActionModal
-          notification={selectedNotificationForAction}
+          task={selectedNotificationForAction}
           isOpen={isSoilActionOpen}
           onClose={closeSoilActionModal}
-          onSuccess={handleSoilActionSuccess}
+          onReschedule={handleSoilActionSuccess}
         />
       )}
     </div>

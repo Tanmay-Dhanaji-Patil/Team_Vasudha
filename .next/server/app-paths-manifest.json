@@ -1,6 +1,4 @@
 {
   "/api/appointment/[id]/route": "app/api/appointment/[id]/route.js",
-  "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/weather/route": "app/api/weather/route.js",
   "/page": "app/page.js"
 }

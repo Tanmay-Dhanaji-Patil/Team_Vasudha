@@ -9,7 +9,7 @@ export default function Chatbot({ user, isOpen, onClose }) {
       id: 1,
       type: 'bot',
       message: `Hello ${user?.username || 'User'}! 👋 I'm your AI assistant. I can help you with any questions - from agriculture and farming to general topics like science, technology, current events, and more. What would you like to know?`,
-      timestamp: new Date()
+      timestamp: new Date().toISOString()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
@@ -26,10 +26,10 @@ export default function Chatbot({ user, isOpen, onClose }) {
     if (!inputMessage.trim() || isLoading) return;
 
     const userMessage = {
-      id: Date.now(),
+      id: Math.floor(Math.random() * 1000000),
       type: 'user',
       message: inputMessage.trim(),
-      timestamp: new Date()
+      timestamp: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -57,10 +57,10 @@ export default function Chatbot({ user, isOpen, onClose }) {
 
       if (data.success) {
         const botMessage = {
-          id: Date.now() + 1,
+          id: Math.floor(Math.random() * 1000000),
           type: 'bot',
           message: data.response,
-          timestamp: new Date()
+          timestamp: new Date().toISOString()
         };
         setMessages(prev => [...prev, botMessage]);
       } else {
@@ -69,10 +69,10 @@ export default function Chatbot({ user, isOpen, onClose }) {
     } catch (error) {
       console.error('Chatbot error:', error);
       const errorMessage = {
-        id: Date.now() + 1,
+        id: Math.floor(Math.random() * 1000000),
         type: 'bot',
         message: 'Sorry, I encountered an error. Please try again. You can ask me about any topic - agriculture, science, technology, current events, or general questions!',
-        timestamp: new Date()
+        timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
