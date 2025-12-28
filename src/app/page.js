@@ -207,6 +207,9 @@ export default function Home() {
   const [showFertilizerModal, setShowFertilizerModal] = useState(false);
   const [fertilizerType, setFertilizerType] = useState(null); // 'organic' or 'inorganic'
   const [selectedCrop, setSelectedCrop] = useState(cropOptions[0].name);
+  const [mlPredictions, setMlPredictions] = useState(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState(null);
   
   // Appointment ID step states
   const [appointmentId, setAppointmentId] = useState('');
@@ -253,6 +256,59 @@ export default function Home() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Get ML model predictions
+  const getMLPredictions = async () => {
+    if (!inputMode || !inputMode.endsWith('soil')) {
+      setMlError('ML predictions are only available for soil samples');
+      return;
+    }
+
+    // Validate required fields
+    if (!form.nitrogen || !form.phosphorous || !form.potassium || !form.ph || !form.moisture || !form.temperature) {
+      setMlError('Please fill in all required soil sensor fields (Nitrogen, Phosphorous, Potassium, pH, Moisture, Temperature)');
+      return;
+    }
+
+    setMlLoading(true);
+    setMlError(null);
+    setMlPredictions(null);
+
+    try {
+      const response = await fetch('/api/ml-recommendation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nitrogen: form.nitrogen,
+          phosphorous: form.phosphorous,
+          potassium: form.potassium,
+          ph: form.ph,
+          moisture: form.moisture,
+          soil_ec: form.soil_ec || 0,
+          temperature: form.temperature,
+          crop: form.crop
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMlPredictions(result.predictions);
+        setMlError(null);
+      } else {
+        setMlError(result.error || 'Failed to get ML predictions');
+        setMlPredictions(null);
+      }
+    } catch (error) {
+      console.error('ML prediction error:', error);
+      setMlError('Failed to connect to ML model. Please check if Python is installed and the model files are present.');
+      setMlPredictions(null);
+    } finally {
+      setMlLoading(false);
+    }
+  };
+
   // Handle form submit to add sample
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -273,9 +329,11 @@ export default function Home() {
         email: form.email,
         appointmentId: appointmentId,
         farmerId: appointmentDetails?.farmer?.id,
-        plotId: appointmentDetails?.plot?.id
+        plotId: appointmentDetails?.plot?.id,
+        mlPredictions: mlPredictions // Include ML predictions if available
       }]);
       setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
+      setMlPredictions(null); // Clear predictions after adding sample
     } else {
       setSamples((prev) => [...prev, {
         day: form.day,
@@ -467,7 +525,7 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-              {/* ThingSpeak toggle and quick autofill */}
+              {/* Input mode selection */}
               <div className="col-span-2 flex items-center gap-4">
                 <label className="flex items-center gap-3">
                   <input type="radio" name="inputMode" checked={inputMode === 'manual-soil'} onChange={() => setInputMode('manual-soil')} />
@@ -485,14 +543,17 @@ export default function Home() {
                   <input type="radio" name="inputMode" checked={inputMode === 'thingspeak-water'} onChange={() => setInputMode('thingspeak-water')} />
                   <span className="text-sm">ThingSpeak — Water</span>
                 </label>
-                {(inputMode === 'thingspeak-soil' || inputMode === 'thingspeak-water') && (
-                  <div className="flex items-center gap-2 ml-4">
-                    <input
-                      placeholder="ThingSpeak channel id"
-                      value={tsChannelId}
-                      onChange={(e) => setTsChannelId(e.target.value)}
-                      className="border rounded px-3 py-2"
-                    />
+              </div>
+              
+              {/* ThingSpeak input and buttons - properly aligned with form grid */}
+              {(inputMode === 'thingspeak-soil' || inputMode === 'thingspeak-water') && (
+                <div className="col-span-2 flex items-center gap-3">
+                  <input
+                    placeholder="ThingSpeak channel id"
+                    value={tsChannelId}
+                    onChange={(e) => setTsChannelId(e.target.value)}
+                    className="border rounded px-3 py-2 flex-1"
+                  />
                     <button
                       type="button"
                       onClick={async () => {
@@ -714,7 +775,7 @@ export default function Home() {
                           setTsLoading(false);
                         }
                       }}
-                      className="px-3 py-2 bg-indigo-600 text-white rounded"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 transition-colors"
                       disabled={tsLoading}
                     >
                       {tsLoading ? 'Fetching...' : 'Fetch & Fill'}
@@ -740,7 +801,7 @@ export default function Home() {
                         
                         // Generate fake data function (converted from your Arduino code)
                         function generateFakeData() {
-                          console.log('Generating fluctuating sensor data...');
+                          console.log('*** DEMO MODE: Generating fake sensor data... ***');
                           
                           // Generate data that fluctuates slightly around base values
                           const N = BASE_N + Math.floor(Math.random() * 11) - 5; // 292 to 302
@@ -751,12 +812,20 @@ export default function Home() {
                           const npkTemp = BASE_TEMP + (Math.floor(Math.random() * 9 - 4) / 10.0); // 27.6 to 28.4
                           const npkHum = BASE_HUMIDITY + (Math.floor(Math.random() * 31 - 15) / 10.0); // 93.5 to 96.5
                           const soilMoisture = BASE_MOISTURE + (Math.floor(Math.random() * 41 - 20) / 10.0); // 96.0 to 100.0
+                          
+                          // Water sensor data (based on your Arduino function)
                           const waterPH = BASE_WATER_PH + (Math.floor(Math.random() * 17 - 8) / 100.0); // 7.02 to 7.18
                           const waterTemp = BASE_WATER_TEMP + (Math.floor(Math.random() * 11 - 5) / 10.0); // 25.5 to 26.5
                           
                           // Constrain values to realistic ranges
                           const constrainedSoilMoisture = Math.max(0, Math.min(100, soilMoisture));
                           const constrainedNpkHum = Math.max(0, Math.min(100, npkHum));
+                          const constrainedWaterPH = Math.max(6.0, Math.min(8.5, waterPH));
+                          const constrainedWaterTemp = Math.max(15, Math.min(35, waterTemp));
+                          
+                          console.log('Generated sensor values:');
+                          console.log(`Soil: N=${N}, P=${P}, K=${K}, pH=${npkPH.toFixed(2)}, EC=${EC.toFixed(2)}, Moisture=${constrainedSoilMoisture.toFixed(1)}%, Temp=${npkTemp.toFixed(1)}°C, Humidity=${constrainedNpkHum.toFixed(1)}%`);
+                          console.log(`Water: pH=${constrainedWaterPH.toFixed(2)}, Temp=${constrainedWaterTemp.toFixed(1)}°C`);
                           
                           return {
                             N: N,
@@ -767,8 +836,8 @@ export default function Home() {
                             npkTemp: npkTemp,
                             npkHum: constrainedNpkHum,
                             soilMoisture: constrainedSoilMoisture,
-                            waterPH: waterPH,
-                            waterTemp: waterTemp
+                            waterPH: constrainedWaterPH,
+                            waterTemp: constrainedWaterTemp
                           };
                         }
                         
@@ -842,14 +911,13 @@ export default function Home() {
                         setForm(newForm);
                         setTsError(null);
                       }}
-                      className="px-3 py-2 bg-green-600 text-white rounded ml-2"
+                      className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
                     >
                       Test Mapping
                     </button>
                     
                   </div>
                 )}
-              </div>
               <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
               <input name="email" type="email" value={form.email} onChange={handleFormChange} placeholder="Email for report" className="border rounded px-4 py-2" required />
               {inputMode && inputMode.endsWith('soil') ? (
@@ -868,11 +936,45 @@ export default function Home() {
                   <input name="water_ph" type="number" step="0.1" value={form.water_ph} onChange={handleFormChange} placeholder="Water pH" className="border rounded px-4 py-2" required />
                 </>
               )}
-              <div className="col-span-2 flex gap-4 justify-center">
+              <div className="col-span-2 flex gap-4 justify-center flex-wrap">
                 <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 transition">Add Sample</button>
                 <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition" onClick={() => setShowFertilizerModal(true)} disabled={samples.length === 0}>Finish</button>
+                {inputMode && inputMode.endsWith('soil') && (
+                  <button 
+                    type="button" 
+                    className="bg-purple-600 text-white px-6 py-2 rounded shadow hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed" 
+                    onClick={getMLPredictions}
+                    disabled={mlLoading || !form.nitrogen || !form.phosphorous || !form.potassium || !form.ph || !form.moisture || !form.temperature}
+                  >
+                    {mlLoading ? 'Predicting...' : 'Get ML Recommendations'}
+                  </button>
+                )}
               </div>
             </form>
+            {/* ML Predictions Display */}
+            {mlPredictions && (
+              <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                <h3 className="text-lg font-bold text-purple-800 dark:text-purple-200 mb-3">🤖 ML Model Recommendations (kg/ha)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(mlPredictions).map(([fertilizer, amount]) => (
+                    amount > 0 && (
+                      <div key={fertilizer} className="bg-white dark:bg-gray-800 p-3 rounded border border-purple-200 dark:border-purple-700">
+                        <div className="font-semibold text-gray-700 dark:text-gray-300 text-sm">{fertilizer}</div>
+                        <div className="text-purple-600 dark:text-purple-400 font-bold text-lg">{amount.toFixed(2)}</div>
+                      </div>
+                    )
+                  ))}
+                </div>
+                {Object.values(mlPredictions).every(v => v === 0) && (
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">No fertilizer recommendations based on current soil conditions.</p>
+                )}
+              </div>
+            )}
+            {mlError && (
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-red-600 dark:text-red-400 text-sm">❌ {mlError}</p>
+              </div>
+            )}
             {samples.length > 0 && (
               <div className="mt-4">
                 <div className="text-lg text-green-700 font-semibold mb-3">
