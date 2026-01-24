@@ -21,7 +21,7 @@ const organicIcon = createIcon('#22c55e'); // Green
 const inorganicIcon = createIcon('#f97316'); // Orange
 const bothIcon = createIcon('#a855f7'); // Purple
 
-export default function MapComponent({ stores = [] }) {
+export default function MapComponent({ stores = [], onSelectStore }) {
     const position = [16.8524, 74.5815]; // Sangli coordinates
 
     return (
@@ -40,7 +40,16 @@ export default function MapComponent({ stores = [] }) {
                 }
 
                 return (
-                    <Marker key={store.id} position={[store.lat, store.lng]} icon={icon}>
+                    <Marker
+                        key={store.id}
+                        position={[store.lat, store.lng]}
+                        icon={icon}
+                        eventHandlers={{
+                            click: () => {
+                                if (onSelectStore) onSelectStore(store);
+                            },
+                        }}
+                    >
                         <Popup>
                             <strong>{store.name}</strong><br />
                             {store.address}<br />

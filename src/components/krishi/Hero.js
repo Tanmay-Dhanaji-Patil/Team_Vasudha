@@ -13,7 +13,7 @@ const MapComponent = dynamic(() => import('./MapComponent'), {
     ),
 });
 
-export default function Hero({ stores, currentFilter, onFilterChange }) {
+export default function Hero({ stores, currentFilter, onFilterChange, onSelectStore }) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Left Side: Text & Filters */}
@@ -67,7 +67,7 @@ export default function Hero({ stores, currentFilter, onFilterChange }) {
             <div className="lg:col-span-7 h-[500px] relative">
                 <div className="absolute inset-0 bg-white rounded-3xl shadow-lg border border-gray-100 p-3">
                     <div className="w-full h-full rounded-2xl overflow-hidden relative z-0">
-                        <MapComponent stores={stores} />
+                        <MapComponent stores={stores} onSelectStore={onSelectStore} />
                     </div>
 
                     {/* Legend Overlay */}
