@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "validate-env": "node validate-env.js",
-    "test-db": "node test_db_connection.js"
+    "validate-env": "node scripts/debug/validate-env.js",
+    "test-db": "node scripts/debug/test_db_connection.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
