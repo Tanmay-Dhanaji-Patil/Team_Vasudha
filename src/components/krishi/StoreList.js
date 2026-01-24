@@ -1,14 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 
-export default function StoreList() {
-    const stores = [
-        { id: 1, name: "Sangli Agro Center", address: "Market Yard, Sangli", distance: "1.2 km", stocks: ["Organic", "Inorganic"] },
-        { id: 2, name: "Green Earth Organics", address: "Vishrambag, Sangli", distance: "2.5 km", stocks: ["Organic"] },
-        { id: 3, name: "Farmers Choice Depot", address: "Miraj Road", distance: "3.8 km", stocks: ["Inorganic", "Organic"] },
-        { id: 4, name: "Kisan Suvidha Kendra", address: "Kupwad", distance: "5.1 km", stocks: ["Inorganic"] },
-        { id: 5, name: "Vasudha Bio-Inputs", address: "Madhavnagar", distance: "6.0 km", stocks: ["Organic"] },
-    ];
-
+export default function StoreList({ stores }) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-full">
             <div className="p-5 border-b border-gray-100 bg-gray-50/50">

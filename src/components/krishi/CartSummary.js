@@ -6,7 +6,7 @@ export default function CartSummary() {
                     <p className="text-sm font-medium text-gray-600">3 items in cart</p>
                     <p className="text-lg font-bold text-green-700">₹2,300</p>
                 </div>
-                <button className="bg-green-700 hover:bg-green-800 text-white px-6 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
+                <button className="bg-green-700 hover:bg-green-800 active:scale-95 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm">
                     Checkout
                 </button>
             </div>

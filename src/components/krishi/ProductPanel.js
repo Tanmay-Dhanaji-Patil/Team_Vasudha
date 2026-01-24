@@ -21,13 +21,13 @@ export default function ProductPanel() {
             {/* Tabs */}
             <div className="px-6 py-4 bg-gray-50/50">
                 <div className="flex p-1 bg-gray-200/50 rounded-lg w-fit">
-                    <button className="px-4 py-1.5 rounded-md text-sm font-medium bg-white text-green-700 shadow-sm transition-all">
+                    <button className="px-4 py-1.5 rounded-md text-sm font-medium bg-white text-green-700 shadow-sm transition-all active:scale-95">
                         All
                     </button>
-                    <button className="px-4 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-green-700 transition-all">
+                    <button className="px-4 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-green-700 transition-all active:scale-95">
                         Organic
                     </button>
-                    <button className="px-4 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-green-700 transition-all">
+                    <button className="px-4 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-green-700 transition-all active:scale-95">
                         Inorganic
                     </button>
                 </div>
@@ -45,7 +45,7 @@ export default function ProductPanel() {
                         </div>
                         <div className="text-right">
                             <div className="text-lg font-bold text-green-700">₹{product.price}</div>
-                            <button className="text-xs font-medium text-green-600 mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="text-xs font-medium text-green-600 mt-1 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity active:scale-95">
                                 Add to cart <ShoppingCart className="w-3 h-3" />
                             </button>
                         </div>

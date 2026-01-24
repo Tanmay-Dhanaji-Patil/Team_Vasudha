@@ -13,7 +13,7 @@ const MapComponent = dynamic(() => import('./MapComponent'), {
     ),
 });
 
-export default function Hero() {
+export default function Hero({ stores, currentFilter, onFilterChange }) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Left Side: Text & Filters */}
@@ -48,12 +48,16 @@ export default function Hero() {
                             className="w-full h-12 rounded-xl bg-gray-50 pl-10 pr-4 text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                         />
                     </div>
-                    <select className="h-12 px-4 rounded-xl bg-gray-50 text-gray-700 font-medium border-l-8 border-transparent focus:outline-none cursor-pointer hover:bg-gray-100">
-                        <option>Organic + Inorganic</option>
-                        <option>Organic only</option>
-                        <option>Inorganic only</option>
+                    <select
+                        value={currentFilter}
+                        onChange={(e) => onFilterChange(e.target.value)}
+                        className="h-12 px-4 rounded-xl bg-gray-50 text-gray-700 font-medium border-l-8 border-transparent focus:outline-none cursor-pointer hover:bg-gray-100"
+                    >
+                        <option value="All">Organic + Inorganic</option>
+                        <option value="Organic">Organic only</option>
+                        <option value="Inorganic">Inorganic only</option>
                     </select>
-                    <button className="h-12 px-6 rounded-xl bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold transition-colors">
+                    <button className="h-12 px-6 rounded-xl bg-yellow-400 hover:bg-yellow-500 active:scale-95 text-yellow-900 font-bold transition-all shadow-sm hover:shadow-md">
                         Apply
                     </button>
                 </div>
@@ -63,7 +67,7 @@ export default function Hero() {
             <div className="lg:col-span-7 h-[500px] relative">
                 <div className="absolute inset-0 bg-white rounded-3xl shadow-lg border border-gray-100 p-3">
                     <div className="w-full h-full rounded-2xl overflow-hidden relative z-0">
-                        <MapComponent />
+                        <MapComponent stores={stores} />
                     </div>
 
                     {/* Legend Overlay */}
