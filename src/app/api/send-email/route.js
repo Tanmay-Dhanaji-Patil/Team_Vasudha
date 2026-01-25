@@ -2,6 +2,34 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
 import { supabaseAdmin } from '@/database/supabaseAdmin';
+import { translations } from '@/utils/translations';
+import path from 'path';
+
+// Register Hindi Font - Using local TTF files for maximum reliability
+const fontsDir = path.join(process.cwd(), 'public', 'fonts');
+
+Font.register({
+  family: 'Hind',
+  fonts: [
+    {
+      src: path.join(fontsDir, 'Hind-Regular.ttf'),
+      fontWeight: 400
+    },
+    {
+      src: path.join(fontsDir, 'Hind-Bold.ttf'),
+      fontWeight: 700
+    }
+  ]
+});
+
+const interpolate = (str, params) => {
+  let res = str;
+  if (!params) return res;
+  for (const key in params) {
+    res = res.replace(new RegExp(`{${key}}`, 'g'), params[key]);
+  }
+  return res;
+};
 
 const BUCKET = 'soil-reports';
 
@@ -9,7 +37,9 @@ export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
-    const { samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData } = await request.json();
+    const { samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData, language = 'en' } = await request.json();
+
+    const t = translations[language] || translations.en;
 
     // Create transporter with environment variables
     const transporter = nodemailer.createTransport({
@@ -30,7 +60,7 @@ export async function POST(request) {
     const uniqueEmails = [...new Set(samples.map(sample => sample.email))];
 
     // Generate PDF from data
-    const pdfBuffer = await generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData);
+    const pdfBuffer = await generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData, language);
 
     // Upload per farmer with metadata
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -89,14 +119,14 @@ export async function POST(request) {
     }
 
     // Create a simple email text version
-    const emailText = generateEmailText(samples, uniqueEmails.length);
+    const emailText = generateEmailText(samples, uniqueEmails.length, language);
 
     // Send email to each unique email address with PDF attachment
     const emailPromises = uniqueEmails.map(async (email) => {
       const mailOptions = {
         from: process.env.SMTP_USER,
         to: email,
-        subject: '🌱 Professional Soil Analysis Report - PDF Attached',
+        subject: t.emailSubject,
         html: emailText,
         attachments: [
           {
@@ -117,8 +147,8 @@ export async function POST(request) {
 
     const emailResults = await Promise.all(emailPromises);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: `Processed ${uniqueEmails.length} recipient(s)`,
       emails: uniqueEmails,
       uploads,
@@ -310,8 +340,18 @@ const styles = StyleSheet.create({
 });
 
 // Generate PDF using React-PDF
-async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData) {
+async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData, language = 'en') {
   try {
+    const t = translations[language] || translations.en;
+    const fontStyle = { fontFamily: language === 'hi' ? 'Hind' : 'Helvetica' };
+    const interpolate = (text, params) => {
+      let result = text;
+      for (const key in params) {
+        result = result.replace(`{${key}}`, params[key]);
+      }
+      return result;
+    };
+
     // Group samples by crop for the report
     const groupedSamples = {};
     samples.forEach(sample => {
@@ -337,13 +377,13 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
     Object.entries(groupedSamples).forEach(([cropName, cropSamples]) => {
       const std = getStandardValues(cropName);
       let cropNitrogen = 0, cropPhosphorous = 0, cropPotassium = 0;
-      
+
       cropSamples.forEach(sample => {
         cropNitrogen += Math.max(0, std.nitrogen - sample.nitrogen);
         cropPhosphorous += Math.max(0, std.phosphorous - sample.phosphorous);
         cropPotassium += Math.max(0, std.potassium - sample.potassium);
       });
-      
+
       const cropCost = cropNitrogen * prices.nitrogen + cropPhosphorous * prices.phosphorous + cropPotassium * prices.potassium;
       totalNitrogen += cropNitrogen;
       totalPhosphorous += cropPhosphorous;
@@ -359,7 +399,7 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
       });
     });
 
-    const currentDate = new Date().toLocaleDateString('en-US', {
+    const currentDate = new Date().toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -369,72 +409,72 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
     // Create PDF Document
     const MyDocument = () => (
       <Document>
-        <Page size="A4" style={styles.page}>
+        <Page size="A4" style={{ ...styles.page, ...fontStyle }}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Professional Soil Analysis Report</Text>
-            <Text style={styles.subtitle}>Comprehensive Agricultural Assessment</Text>
-            <Text style={styles.subtitle}>Generated on: {currentDate}</Text>
+            <Text style={styles.title}>{t.title}</Text>
+            <Text style={styles.subtitle}>{t.subtitle}</Text>
+            <Text style={styles.subtitle}>{t.generatedOn}: {currentDate}</Text>
           </View>
 
           {/* Executive Summary */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Executive Summary</Text>
+            <Text style={styles.sectionTitle}>{t.executiveSummary}</Text>
             <View style={styles.statsGrid}>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{samples.length}</Text>
-                <Text style={styles.statLabel}>Samples{'\n'}Analyzed</Text>
+                <Text style={styles.statLabel}>{t.samplesAnalyzed}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{Object.keys(groupedSamples).length}</Text>
-                <Text style={styles.statLabel}>Crop Types</Text>
+                <Text style={styles.statLabel}>{t.cropTypes}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{grandTotalCost.toFixed(0)}</Text>
-                <Text style={styles.statLabel}>Total Investment</Text>
+                <Text style={styles.statLabel}>{t.totalInvestment}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{(totalNitrogen + totalPhosphorous + totalPotassium).toFixed(1)}</Text>
-                <Text style={styles.statLabel}>Total Fertilizer{'\n'}(kg)</Text>
+                <Text style={styles.statLabel}>{t.totalFertilizer}{'\n'}(kg)</Text>
               </View>
             </View>
             <Text style={styles.cropsList}>
-              Crops Analyzed: {Object.keys(groupedSamples).join(' • ')}
+              {t.cropsAnalyzed}: {Object.keys(groupedSamples).map(c => t.crops[c] || c).join(' • ')}
             </Text>
           </View>
 
           {/* Sample Analysis Table */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sample Analysis Details</Text>
+            <Text style={styles.sectionTitle}>{t.sampleAnalysisDetails}</Text>
             <View style={styles.table}>
               {/* Table Header */}
               <View style={styles.tableRow}>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Sample ID</Text>
+                  <Text style={styles.tableCellHeader}>{t.sampleId}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Crop</Text>
+                  <Text style={styles.tableCellHeader}>{t.crop}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Nitrogen</Text>
+                  <Text style={styles.tableCellHeader}>{t.nitrogen}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Phosphorous</Text>
+                  <Text style={styles.tableCellHeader}>{t.phosphorous}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Potassium</Text>
+                  <Text style={styles.tableCellHeader}>{t.potassium}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Temperature</Text>
+                  <Text style={styles.tableCellHeader}>{t.temperature}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Moisture</Text>
+                  <Text style={styles.tableCellHeader}>{t.moisture}</Text>
                 </View>
                 <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>pH</Text>
+                  <Text style={styles.tableCellHeader}>{t.ph}</Text>
                 </View>
               </View>
-              
+
               {/* Table Rows */}
               {samples.map((sample, index) => (
                 <View style={styles.tableRow} key={index}>
@@ -442,7 +482,7 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
                     <Text style={styles.tableCell}>{sample.day}</Text>
                   </View>
                   <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{sample.crop}</Text>
+                    <Text style={styles.tableCell}>{t.crops[sample.crop] || sample.crop}</Text>
                   </View>
                   <View style={styles.tableCol}>
                     <Text style={styles.tableCell}>{sample.nitrogen}</Text>
@@ -468,39 +508,39 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
           </View>
         </Page>
 
-        <Page size="A4" style={styles.page}>
+        <Page size="A4" style={{ ...styles.page, ...fontStyle }}>
           {/* Investment Analysis */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Investment Analysis & Cost Breakdown</Text>
+            <Text style={styles.sectionTitle}>{t.investmentAnalysis}</Text>
             <Text style={{ fontSize: 10, marginBottom: 12, color: '#4a5568', textAlign: 'left' }}>
-              Based on scientific crop requirements and current market rates:
+              {t.investmentSubtitle}
             </Text>
-            
+
             <View style={styles.table}>
               {/* Fertilizer Table Header */}
               <View style={styles.tableRow}>
                 <View style={[styles.tableColHeader, { width: '25%' }]}>
-                  <Text style={styles.tableCellHeader}>Crop Type</Text>
+                  <Text style={styles.tableCellHeader}>{t.cropTypes}</Text>
                 </View>
                 <View style={[styles.tableColHeader, { width: '18%' }]}>
-                  <Text style={styles.tableCellHeader}>Nitrogen{'\n'}(kg)</Text>
+                  <Text style={styles.tableCellHeader}>{t.nitrogen}{'\n'}(kg)</Text>
                 </View>
                 <View style={[styles.tableColHeader, { width: '18%' }]}>
-                  <Text style={styles.tableCellHeader}>Phosphorous{'\n'}(kg)</Text>
+                  <Text style={styles.tableCellHeader}>{t.phosphorous}{'\n'}(kg)</Text>
                 </View>
                 <View style={[styles.tableColHeader, { width: '18%' }]}>
-                  <Text style={styles.tableCellHeader}>Potassium{'\n'}(kg)</Text>
+                  <Text style={styles.tableCellHeader}>{t.potassium}{'\n'}(kg)</Text>
                 </View>
                 <View style={[styles.tableColHeader, { width: '21%' }]}>
-                  <Text style={styles.tableCellHeader}>Investment{'\n'}Cost (Rs)</Text>
+                  <Text style={styles.tableCellHeader}>{t.investmentCost}{'\n'}(Rs)</Text>
                 </View>
               </View>
-              
+
               {/* Fertilizer Data Rows */}
               {fertilizerData.map((row, index) => (
                 <View style={styles.tableRow} key={index}>
                   <View style={[styles.tableCol, { width: '25%' }]}>
-                    <Text style={styles.tableCell}>{row.crop}</Text>
+                    <Text style={styles.tableCell}>{t.crops[row.crop] || row.crop}</Text>
                   </View>
                   <View style={[styles.tableCol, { width: '18%' }]}>
                     <Text style={styles.tableCell}>{row.nitrogen}</Text>
@@ -516,11 +556,11 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
                   </View>
                 </View>
               ))}
-              
+
               {/* Total Row */}
               <View style={[styles.tableRow, styles.totalRow]}>
                 <View style={[styles.tableCol, { width: '25%', backgroundColor: '#10b981' }]}>
-                  <Text style={styles.totalCell}>TOTAL</Text>
+                  <Text style={styles.totalCell}>{t.total}</Text>
                 </View>
                 <View style={[styles.tableCol, { width: '18%', backgroundColor: '#10b981' }]}>
                   <Text style={styles.totalCell}>{totalNitrogen.toFixed(2)}</Text>
@@ -540,41 +580,41 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
 
           {/* Expert Recommendations */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Expert Recommendations</Text>
+            <Text style={styles.sectionTitle}>{t.expertRecommendations}</Text>
             <View style={styles.recommendation}>
               <Text style={styles.bullet}>✓</Text>
               <Text style={styles.recommendationText}>
-                <Text style={{ fontWeight: 'bold' }}>Nitrogen Management:</Text> Apply {totalNitrogen.toFixed(2)} kg of nitrogen-based fertilizer in split doses for optimal uptake
+                <Text style={{ fontWeight: 'bold' }}>{t.nitrogenManagement}:</Text> {interpolate(t.nitrogenMsg, { amount: totalNitrogen.toFixed(2) })}
               </Text>
             </View>
             <View style={styles.recommendation}>
               <Text style={styles.bullet}>✓</Text>
               <Text style={styles.recommendationText}>
-                <Text style={{ fontWeight: 'bold' }}>Phosphorous Enhancement:</Text> Add {totalPhosphorous.toFixed(2)} kg of phosphorous fertilizer during soil preparation
+                <Text style={{ fontWeight: 'bold' }}>{t.phosphorousEnhancement}:</Text> {interpolate(t.phosphorousMsg, { amount: totalPhosphorous.toFixed(2) })}
               </Text>
             </View>
             <View style={styles.recommendation}>
               <Text style={styles.bullet}>✓</Text>
               <Text style={styles.recommendationText}>
-                <Text style={{ fontWeight: 'bold' }}>Potassium Supplementation:</Text> Use {totalPotassium.toFixed(2)} kg of potassium fertilizer for improved crop resistance
+                <Text style={{ fontWeight: 'bold' }}>{t.potassiumSupplementation}:</Text> {interpolate(t.potassiumMsg, { amount: totalPotassium.toFixed(2) })}
               </Text>
             </View>
             <View style={styles.recommendation}>
               <Text style={styles.bullet}>✓</Text>
               <Text style={styles.recommendationText}>
-                <Text style={{ fontWeight: 'bold' }}>Budget Allocation:</Text> Total investment of ₹{grandTotalCost.toFixed(2)} will maximize your crop yield potential
+                <Text style={{ fontWeight: 'bold' }}>{t.budgetAllocation}:</Text> {interpolate(t.budgetMsg, { amount: grandTotalCost.toFixed(2) })}
               </Text>
             </View>
             <View style={styles.recommendation}>
               <Text style={styles.bullet}>✓</Text>
               <Text style={styles.recommendationText}>
-                <Text style={{ fontWeight: 'bold' }}>Application Schedule:</Text> Follow systematic fertilizer application timeline for best results
+                <Text style={{ fontWeight: 'bold' }}>{t.applicationSchedule}:</Text> {t.applicationMsg}
               </Text>
             </View>
             <View style={styles.recommendation}>
               <Text style={styles.bullet}>✓</Text>
               <Text style={styles.recommendationText}>
-                <Text style={{ fontWeight: 'bold' }}>Monitoring Protocol:</Text> Continue regular soil testing to track improvement progress
+                <Text style={{ fontWeight: 'bold' }}>{t.monitoringProtocol}:</Text> {t.monitoringMsg}
               </Text>
             </View>
           </View>
@@ -583,44 +623,44 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
           {fertilizerType && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {fertilizerType === 'organic' ? '🌱 Organic' : '⚗️ Inorganic'} Fertilizer Recommendations
+                {fertilizerType === 'organic' ? '🌱 ' + t.organic : '⚗️ ' + t.inorganic} {t.fertilizerRecommendations}
               </Text>
               <Text style={styles.sectionSubtitle}>
-                Recommended {fertilizerType === 'organic' ? 'organic' : 'inorganic'} fertilizers for your soil analysis
+                {interpolate(t.fertilizerSubtitle, { type: fertilizerType === 'organic' ? t.organic.toLowerCase() : t.inorganic.toLowerCase() })}
               </Text>
-              
+
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.tableCell, { flex: 1.2 }]}>Nutrient</Text>
-                  <Text style={[styles.tableCell, { flex: 2 }]}>Fertilizer Name</Text>
-                  <Text style={[styles.tableCell, { flex: 1.5 }]}>Form</Text>
-                  <Text style={[styles.tableCell, { flex: 1.2 }]}>NPK Ratio</Text>
-                  <Text style={[styles.tableCell, { flex: 1 }]}>Price (₹/kg)</Text>
+                  <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.nutrient}</Text>
+                  <Text style={[styles.tableCell, { flex: 2 }]}>{t.fertilizerName}</Text>
+                  <Text style={[styles.tableCell, { flex: 1.5 }]}>{t.form}</Text>
+                  <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.npkRatio}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{t.price} (₹/kg)</Text>
                 </View>
-                
+
                 {(fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers).nitrogen.map((fertilizer, index) => (
                   <View key={`nitrogen-${index}`} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { flex: 1.2 }]}>Nitrogen (N)</Text>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.nitrogen} (N)</Text>
                     <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>{fertilizer.name}</Text>
                     <Text style={[styles.tableCell, { flex: 1.5 }]}>{fertilizer.form}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{fertilizer.npk || 'High Nitrogen'}</Text>
                     <Text style={[styles.tableCell, { flex: 1, fontWeight: 'bold' }]}>₹{fertilizer.price}</Text>
                   </View>
                 ))}
-                
+
                 {(fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers).phosphorous.map((fertilizer, index) => (
                   <View key={`phosphorous-${index}`} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { flex: 1.2 }]}>Phosphorous (P)</Text>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.phosphorous} (P)</Text>
                     <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>{fertilizer.name}</Text>
                     <Text style={[styles.tableCell, { flex: 1.5 }]}>{fertilizer.form}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{fertilizer.npk || 'High Phosphorous'}</Text>
                     <Text style={[styles.tableCell, { flex: 1, fontWeight: 'bold' }]}>₹{fertilizer.price}</Text>
                   </View>
                 ))}
-                
+
                 {(fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers).potassium.map((fertilizer, index) => (
                   <View key={`potassium-${index}`} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { flex: 1.2 }]}>Potassium (K)</Text>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.potassium} (K)</Text>
                     <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>{fertilizer.name}</Text>
                     <Text style={[styles.tableCell, { flex: 1.5 }]}>{fertilizer.form}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{fertilizer.npk || 'High Potassium'}</Text>
@@ -633,12 +673,12 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerTitle}>Crop Management System</Text>
-            <Text style={styles.footerText}>Advanced Agricultural Analytics & Precision Farming Solutions</Text>
-            <Text style={styles.footerText}>Support: support@cropmanagement.com</Text>
-            <Text style={styles.footerText}>Website: www.cropmanagement.com</Text>
+            <Text style={styles.footerTitle}>{t.footerTitle}</Text>
+            <Text style={styles.footerText}>{t.footerSubtitle}</Text>
+            <Text style={styles.footerText}>{t.support}: support@cropmanagement.com</Text>
+            <Text style={styles.footerText}>{t.website}: www.cropmanagement.com</Text>
             <Text style={[styles.footerText, { fontSize: 8, marginTop: 8 }]}>
-              © 2025 Crop Management System. All rights reserved.
+              {t.rightsReserved}
             </Text>
           </View>
         </Page>
@@ -654,12 +694,14 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
 }
 
 // Generate email text content
-function generateEmailText(samples, emailCount) {
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+function generateEmailText(samples, emailCount, language = 'en') {
+  const t = translations[language] || translations.en;
+
+  const currentDate = new Date().toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
 
   return `
@@ -677,55 +719,55 @@ function generateEmailText(samples, emailCount) {
     </head>
     <body>
       <div class="header">
-        <h1>🌱 Soil Analysis Report</h1>
-        <p>Professional Agricultural Assessment</p>
-        <p><strong>Generated on:</strong> ${currentDate}</p>
+        <h1>🌱 ${t.title}</h1>
+        <p>${t.subtitle}</p>
+        <p><strong>${t.generatedOn}:</strong> ${currentDate}</p>
       </div>
 
       <div class="content">
-        <h2>📊 Report Summary</h2>
-        <p>Dear Agricultural Professional,</p>
+        <h2>📊 ${t.executiveSummary}</h2>
+        <p>${t.emailGreeting}</p>
         
-        <p>We are pleased to provide you with your comprehensive soil analysis report. This professional assessment includes:</p>
+        <p>${t.emailIntro}</p>
         
         <ul>
-          <li><strong>📈 ${samples.length} Soil Samples</strong> - Detailed analysis of all submitted samples</li>
-          <li><strong>💰 Cost Analysis</strong> - Complete fertilizer investment breakdown</li>
-          <li><strong>📋 Expert Recommendations</strong> - Actionable insights for optimal crop yield</li>
-          <li><strong>📊 Visual Charts</strong> - Professional data visualization and trends</li>
+          <li><strong>📈 ${samples.length} ${t.samplesAnalyzed}</strong> - ${t.emailListItem1}</li>
+          <li><strong>💰 ${t.totalInvestment}</strong> - ${t.emailListItem2}</li>
+          <li><strong>📋 ${t.expertRecommendations}</strong> - ${t.emailListItem3}</li>
+          <li><strong>📊 ${t.chart || 'Visual Charts'}</strong> - ${t.emailListItem4}</li>
         </ul>
 
         <div class="highlight">
-          <h3>📎 PDF Report Attached</h3>
-          <p>Your complete professional soil analysis report is attached as a PDF document. This comprehensive report includes all analysis data, recommendations, and actionable insights in a beautifully formatted document.</p>
+          <h3>${t.emailPdfTitle}</h3>
+          <p>${t.emailPdfMsg}</p>
         </div>
 
-        <h3>🔍 What's Inside Your Report:</h3>
+        <h3>${t.whatInside}</h3>
         <ul>
-          <li>Executive Summary Dashboard</li>
-          <li>Detailed Sample Analysis Tables</li>
-          <li>Investment Analysis & Cost Breakdown</li>
-          <li>Expert Agricultural Recommendations</li>
-          <li>Market Pricing Information</li>
-          <li>Professional Charts & Visualizations</li>
+          <li>${t.insideItem1}</li>
+          <li>${t.insideItem2}</li>
+          <li>${t.insideItem3}</li>
+          <li>${t.insideItem4}</li>
+          <li>${t.insideItem5}</li>
+          <li>${t.insideItem6}</li>
         </ul>
 
-        <p><strong>Next Steps:</strong></p>
+        <p><strong>${t.nextSteps}</strong></p>
         <ol>
-          <li>Download and review the attached PDF report</li>
-          <li>Implement the recommended fertilizer applications</li>
-          <li>Monitor your crop progress using our guidelines</li>
-          <li>Contact our support team for any questions</li>
+          <li>${t.step1}</li>
+          <li>${t.step2}</li>
+          <li>${t.step3}</li>
+          <li>${t.step4}</li>
         </ol>
       </div>
 
       <div class="footer">
-        <h3>🌱 Crop Management System</h3>
-        <p>Advanced Agricultural Analytics & Precision Farming</p>
-        <p><strong>📧 Support:</strong> support@cropmanagement.com</p>
-        <p><strong>🌐 Website:</strong> www.cropmanagement.com</p>
+        <h3>🌱 ${t.footerTitle}</h3>
+        <p>${t.footerSubtitle}</p>
+        <p><strong>📧 ${t.support}:</strong> support@cropmanagement.com</p>
+        <p><strong>🌐 ${t.website}:</strong> www.cropmanagement.com</p>
         <p style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
-          This is an automated message. Please do not reply to this email.
+          ${t.autoMessage}
         </p>
       </div>
     </body>
@@ -734,13 +776,13 @@ function generateEmailText(samples, emailCount) {
 }
 
 function generateHTMLReport(samples, cropGroups, totalCost, reportData) {
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
-  
+
   // Group samples by crop for the report
   const groupedSamples = {};
   samples.forEach(sample => {
@@ -766,13 +808,13 @@ function generateHTMLReport(samples, cropGroups, totalCost, reportData) {
   Object.entries(groupedSamples).forEach(([cropName, cropSamples]) => {
     const std = getStandardValues(cropName);
     let cropNitrogen = 0, cropPhosphorous = 0, cropPotassium = 0;
-    
+
     cropSamples.forEach(sample => {
       cropNitrogen += Math.max(0, std.nitrogen - sample.nitrogen);
       cropPhosphorous += Math.max(0, std.phosphorous - sample.phosphorous);
       cropPotassium += Math.max(0, std.potassium - sample.potassium);
     });
-    
+
     const cropCost = cropNitrogen * prices.nitrogen + cropPhosphorous * prices.phosphorous + cropPotassium * prices.potassium;
     totalNitrogen += cropNitrogen;
     totalPhosphorous += cropPhosphorous;

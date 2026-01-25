@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicFertilizers, inorganicPrices, fertilizerType }) {
   const [isLoading, setIsLoading] = useState(false);
   const [emailStatus, setEmailStatus] = useState('');
+  const [language, setLanguage] = useState('en');
 
   const handleSendReport = async () => {
     setIsLoading(true);
@@ -59,6 +60,7 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
           fertilizerType,
           organicFertilizers,
           inorganicFertilizers,
+          language,
           reportData: {
             totalSamples: samples.filter(s => s.type === 'soil' || s.type === undefined).length,
             crops: Object.keys(cropGroups),
@@ -83,7 +85,20 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
   };
 
   return (
-    <div>
+    <div className="flex flex-col items-center gap-4">
+      <div className="flex items-center gap-3 bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+        <label htmlFor="language-select" className="text-sm font-medium text-gray-700">Report Language:</label>
+        <select
+          id="language-select"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className="text-sm border-none focus:ring-0 cursor-pointer font-semibold text-blue-600"
+        >
+          <option value="en">English (default)</option>
+          <option value="hi">Hindi (हिंदी)</option>
+        </select>
+      </div>
+
       <Button
         className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${isLoading
           ? 'bg-gray-400 cursor-not-allowed'
@@ -640,9 +655,9 @@ export default function Home() {
                             field2: "50",      // N (but field is named "SOIL PHOSPHOROUS")
                             field3: "20",      // P (but field is named "SOIL POTASSIUM")
                             field4: "40",      // K (but field is named "SOIL pH")
-                            field5: "1.5",     // EC (but field is named "SOIL TEMPERATURE")
+                            field5: "25",     // EC (but field is named "SOIL TEMPERATURE")
                             field6: "7.0",     // npkPH (but field is named "SOIL MOISTURE")
-                            field7: "25.0",    // npkTemp (but field is named "SOIL EC")
+                            field7: "1.5",    // npkTemp (but field is named "SOIL EC")
                             field8: "55.0",    // npkHum (but field is named "SOIL HUMIDITY")
                             created_at: new Date().toISOString()
                           };
@@ -656,15 +671,7 @@ export default function Home() {
                           if (!name) return null;
                           const n = String(name).toLowerCase();
 
-                          // Based on your ThingSpeak channel field names:
-                          // Field 1: "SOIL NITROGEN" (but Arduino sends soilMoisture here)
-                          // Field 2: "SOIL PHOSPHOROUS" (but Arduino sends N here)
-                          // Field 3: "SOIL POTASSIUM" (but Arduino sends P here)
-                          // Field 4: "SOIL pH" (but Arduino sends K here)
-                          // Field 5: "SOIL TEMPERATURE" (but Arduino sends EC here)
-                          // Field 6: "SOIL MOISTURE" (but Arduino sends npkPH here)
-                          // Field 7: "SOIL EC" (but Arduino sends npkTemp here)
-                          // Field 8: "SOIL HUMIDITY" (but Arduino sends npkHum here)
+
 
                           // Direct mapping based on your ThingSpeak field names
                           if (n.includes('nitrogen')) return 'nitrogen';
@@ -854,16 +861,16 @@ export default function Home() {
                         field8: "SOIL HUMIDITY"
                       };
 
-                      // Use generated fake data in the correct Arduino order
+                      // Use generated fake data correctly mapped to names
                       const sampleFeed = {
-                        field1: fakeData.soilMoisture.toFixed(1),    // soilMoisture (but field named "SOIL NITROGEN")
-                        field2: fakeData.N.toString(),               // N (but field named "SOIL PHOSPHOROUS")
-                        field3: fakeData.P.toString(),               // P (but field named "SOIL POTASSIUM")
-                        field4: fakeData.K.toString(),               // K (but field named "SOIL pH")
-                        field5: fakeData.EC.toFixed(2),             // EC (but field named "SOIL TEMPERATURE")
-                        field6: fakeData.npkPH.toFixed(2),          // npkPH (but field named "SOIL MOISTURE")
-                        field7: fakeData.npkTemp.toFixed(1),        // npkTemp (but field named "SOIL EC")
-                        field8: fakeData.npkHum.toFixed(1)          // npkHum (but field named "SOIL HUMIDITY")
+                        field1: fakeData.N.toString(),               // SOIL NITROGEN
+                        field2: fakeData.P.toString(),               // SOIL PHOSPHOROUS
+                        field3: fakeData.K.toString(),               // SOIL POTASSIUM
+                        field4: fakeData.npkPH.toFixed(2),           // SOIL pH
+                        field5: fakeData.npkTemp.toFixed(1),         // SOIL TEMPERATURE
+                        field6: fakeData.soilMoisture.toFixed(1),    // SOIL MOISTURE
+                        field7: fakeData.EC.toFixed(2),              // SOIL EC
+                        field8: fakeData.npkHum.toFixed(1)           // SOIL HUMIDITY
                       };
 
                       console.log('Sample feed with fake data:', sampleFeed);
