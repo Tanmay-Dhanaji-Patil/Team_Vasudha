@@ -11,16 +11,16 @@ const __dirname = path.dirname(__filename);
 export async function POST(request) {
   try {
     const body = await request.json();
-    
+
     // Validate required fields
     const requiredFields = ['nitrogen', 'phosphorous', 'potassium', 'ph', 'moisture', 'temperature', 'crop'];
     const missingFields = requiredFields.filter(field => !body[field] && body[field] !== 0);
-    
+
     if (missingFields.length > 0) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Missing required fields: ${missingFields.join(', ')}` 
+        {
+          success: false,
+          error: `Missing required fields: ${missingFields.join(', ')}`
         },
         { status: 400 }
       );
@@ -44,13 +44,13 @@ export async function POST(request) {
 
     // Prepare input JSON
     const inputJson = JSON.stringify(inputData);
-    
+
     // Try to find Python executable (Windows-friendly)
     let pythonCmd = null;
-    const pythonCommands = process.platform === 'win32' 
-      ? ['py', 'python', 'python3', 'py -3']  // Windows: try py launcher first
+    const pythonCommands = process.platform === 'win32'
+      ? ['python', 'py', 'python3', 'py -3']  // Windows: prioritize 'python' (likely 3.10 with libs)
       : ['python3', 'python'];  // Unix-like: try python3 first
-    
+
     for (const cmd of pythonCommands) {
       try {
         const { stdout } = await execAsync(`"${cmd}" --version`, {
@@ -73,11 +73,11 @@ export async function POST(request) {
         continue;
       }
     }
-    
+
     if (!pythonCmd) {
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Python not found. Please install Python 3.7+ and ensure it is in your PATH. On Windows, you can use the Python launcher (py) or add Python to PATH.',
           details: 'Tried commands: ' + pythonCommands.join(', ')
         },
@@ -87,10 +87,10 @@ export async function POST(request) {
 
     // Execute Python script using spawn for better stdin control
     const scriptPath = path.resolve(pythonScriptPath);
-    
+
     console.log(`Executing Python script: ${scriptPath}`);
     console.log(`Input data:`, inputData);
-    
+
     // Use spawn for better control over stdin (avoids Windows echo/pipe issues)
     return new Promise((resolve, reject) => {
       const pythonProcess = spawn(pythonCmd, [scriptPath], {
@@ -182,10 +182,10 @@ export async function POST(request) {
   } catch (error) {
     console.error('API route error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Internal server error',
-        details: error.message 
+        details: error.message
       },
       { status: 500 }
     );
