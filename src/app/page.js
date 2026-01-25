@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Dashboard from "@/components/Dashboard";
 import ValueChart from "@/components/utils/ValueChart";
 import ChartsContainer from "@/components/utils/ChartsContainer";
@@ -26,14 +27,14 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
       });
 
       // Calculate total costs
-      
+
       const getStandardValues = (cropName) => cropOptions.find(c => c.name === cropName)?.values || cropOptions[0].values;
-      
+
       // Use selected fertilizer type for pricing
-      const prices = fertilizerType === 'organic' ? 
+      const prices = fertilizerType === 'organic' ?
         { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
         { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
-      
+
       let totalCost = 0;
       Object.entries(cropGroups).forEach(([cropName, cropSamples]) => {
         const std = getStandardValues(cropName);
@@ -59,10 +60,10 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
           organicFertilizers,
           inorganicFertilizers,
           reportData: {
-              totalSamples: samples.filter(s => s.type === 'soil' || s.type === undefined).length,
-              crops: Object.keys(cropGroups),
-              generatedDate: new Date().toISOString()
-            }
+            totalSamples: samples.filter(s => s.type === 'soil' || s.type === undefined).length,
+            crops: Object.keys(cropGroups),
+            generatedDate: new Date().toISOString()
+          }
         }),
       });
 
@@ -83,12 +84,11 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
 
   return (
     <div>
-      <Button 
-        className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${
-          isLoading 
-            ? 'bg-gray-400 cursor-not-allowed' 
-            : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
-        } text-white font-semibold`}
+      <Button
+        className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${isLoading
+          ? 'bg-gray-400 cursor-not-allowed'
+          : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
+          } text-white font-semibold`}
         onClick={handleSendReport}
         disabled={isLoading}
       >
@@ -104,13 +104,12 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
           '📧 Send Report'
         )}
       </Button>
-      
+
       {emailStatus && (
-        <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${
-          emailStatus.includes('Success') 
-            ? 'bg-green-100 text-green-800 border border-green-200' 
-            : 'bg-red-100 text-red-800 border border-red-200'
-        }`}>
+        <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${emailStatus.includes('Success')
+          ? 'bg-green-100 text-green-800 border border-green-200'
+          : 'bg-red-100 text-red-800 border border-red-200'
+          }`}>
           {emailStatus}
         </div>
       )}
@@ -210,7 +209,7 @@ export default function Home() {
   const [mlPredictions, setMlPredictions] = useState(null);
   const [mlLoading, setMlLoading] = useState(false);
   const [mlError, setMlError] = useState(null);
-  
+
   // Appointment ID step states
   const [appointmentId, setAppointmentId] = useState('');
   const [appointmentDetails, setAppointmentDetails] = useState(null);
@@ -313,7 +312,7 @@ export default function Home() {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (!form.day) return;
-  if (inputMode && inputMode.endsWith('soil')) {
+    if (inputMode && inputMode.endsWith('soil')) {
       setSamples((prev) => [...prev, {
         day: form.day,
         type: 'soil',
@@ -425,7 +424,7 @@ export default function Home() {
             <p className="text-gray-600 dark:text-gray-300 mb-6">
               Please enter your appointment ID to access the soil sample data form
             </p>
-            
+
             <div className="flex flex-col items-center gap-4">
               <input
                 type="text"
@@ -435,15 +434,14 @@ export default function Home() {
                 className="border rounded px-4 py-3 w-full max-w-md text-center text-lg"
                 onKeyPress={(e) => e.key === 'Enter' && handleAppointmentValidation()}
               />
-              
+
               <button
                 onClick={handleAppointmentValidation}
                 disabled={appointmentLoading}
-                className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${
-                  appointmentLoading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
-                } text-white font-semibold`}
+                className={`px-8 py-3 rounded-lg shadow-lg transition-all duration-200 ${appointmentLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'
+                  } text-white font-semibold`}
               >
                 {appointmentLoading ? (
                   <>
@@ -457,7 +455,7 @@ export default function Home() {
                   'Validate Appointment'
                 )}
               </button>
-              
+
               {appointmentError && (
                 <div className="text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2 max-w-md">
                   {appointmentError}
@@ -473,7 +471,7 @@ export default function Home() {
         <section className="relative py-8 px-4 flex flex-col items-center justify-center">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 w-full max-w-4xl text-center">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Farmer Summary</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               {/* Farmer Information */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-6">
@@ -485,7 +483,7 @@ export default function Home() {
                   <p><span className="font-semibold">Location:</span> {appointmentDetails.farmer?.location || 'N/A'}</p>
                 </div>
               </div>
-              
+
               {/* Appointment & Plot Information */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="text-xl font-semibold text-blue-800 mb-4">Appointment & Plot Details</h3>
@@ -495,12 +493,12 @@ export default function Home() {
                   <p><span className="font-semibold">Plot Number:</span> {appointmentDetails.plot?.['Plot Number'] || 'N/A'}</p>
                   <p><span className="font-semibold">Plot Area:</span> {appointmentDetails.plotArea || appointmentDetails.plot?.['Area of Plot'] || 'N/A'}</p>
                   <p><span className="font-semibold">Category:</span> {appointmentDetails.plot?.Category || 'N/A'}</p>
-                  <p><span className="font-semibold">Location:</span> {appointmentDetails.plot?.['Village Name'] ? 
+                  <p><span className="font-semibold">Location:</span> {appointmentDetails.plot?.['Village Name'] ?
                     `${appointmentDetails.plot['Village Name']}, ${appointmentDetails.plot.Taluka}, ${appointmentDetails.plot.District}, ${appointmentDetails.plot.State}` : 'N/A'}</p>
                 </div>
               </div>
             </div>
-            
+
             <button
               onClick={() => setShowAppointmentStep(true)}
               className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
@@ -544,7 +542,7 @@ export default function Home() {
                   <span className="text-sm">ThingSpeak — Water</span>
                 </label>
               </div>
-              
+
               {/* ThingSpeak input and buttons - properly aligned with form grid */}
               {(inputMode === 'thingspeak-soil' || inputMode === 'thingspeak-water') && (
                 <div className="col-span-2 flex items-center gap-3">
@@ -554,326 +552,120 @@ export default function Home() {
                     onChange={(e) => setTsChannelId(e.target.value)}
                     className="border rounded px-3 py-2 flex-1"
                   />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setTsError(null);
-                        if (!tsChannelId) return setTsError('Enter channel id');
-                        setTsLoading(true);
-                        let channelData = null;
-                        let last = null;
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTsError(null);
+                      if (!tsChannelId) return setTsError('Enter channel id');
+                      setTsLoading(true);
+                      let channelData = null;
+                      let last = null;
+                      try {
+                        console.group('🚀 ThingSpeak API Debug');
+                        console.log('Channel ID:', tsChannelId);
+
+                        // First try client-side public fetch (fast path)
                         try {
-                          console.group('🚀 ThingSpeak API Debug');
-                          console.log('Channel ID:', tsChannelId);
-                          
-                          // First try client-side public fetch (fast path)
-                          try {
-                            console.log('📡 Attempting client-side fetch...');
-                            const channelUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}.json`;
-                            console.log('Channel URL:', channelUrl);
-                            
-                            const chRes = await fetch(channelUrl);
-                            console.log('Channel response status:', chRes.status, chRes.statusText);
-                            
-                            if (!chRes.ok) throw new Error(`Channel fetch failed: ${chRes.status}`);
-                            channelData = await chRes.json();
-                            console.log('Channel data received:', channelData);
-                            
-                            const feedUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}/feeds.json?results=1`;
-                            console.log('Feed URL:', feedUrl);
-                            
-                            const feedRes = await fetch(feedUrl);
-                            console.log('Feed response status:', feedRes.status, feedRes.statusText);
-                            
-                            if (feedRes.ok) {
-                              const feedData = await feedRes.json().catch(() => null);
-                              console.log('Feed data received:', feedData);
-                              last = feedData?.feeds?.[0] ?? null;
-                              console.log('Last feed:', last);
-                              if (last) channelData.feeds = feedData.feeds;
-                            } else {
-                              console.log('Feed fetch failed:', feedRes.status, feedRes.statusText);
-                            }
-                          } catch (clientErr) {
-                            // If client can't fetch (CORS or private channel), fallback to server-side fetch
-                            console.log('❌ Client-side fetch failed:', clientErr?.message ?? clientErr);
-                            console.log('🔄 Falling back to server-side fetch...');
-                            
-                            const serverUrl = `/api/thingspeak?id=${encodeURIComponent(tsChannelId)}&fetch=1`;
-                            console.log('Server URL:', serverUrl);
-                            
-                            const apiRes = await fetch(serverUrl);
-                            console.log('Server response status:', apiRes.status, apiRes.statusText);
-                            
-                            if (!apiRes.ok) {
-                              const txt = await apiRes.text().catch(() => '');
-                              throw new Error(`Server fetch failed: ${apiRes.status} ${txt}`);
-                            }
-                            const apiJson = await apiRes.json();
-                            console.log('Server response:', apiJson);
-                            
-                            if (!apiJson?.success) throw new Error(apiJson?.message || 'Server fetch returned an error');
-                            channelData = apiJson.channel;
-                            last = (channelData?.feeds && channelData.feeds[0]) || null;
-                            console.log('Server channel data:', channelData);
-                            console.log('Server last feed:', last);
-                          }
+                          console.log('📡 Attempting client-side fetch...');
+                          const channelUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}.json`;
+                          console.log('Channel URL:', channelUrl);
 
-                          if (!channelData) {
-                            console.log('❌ No channel data returned, trying with sample data...');
-                            
-                            // Test with sample data matching your ThingSpeak field names
-                            channelData = {
-                              id: 3110372,
-                              name: "VASUDHA 1",
-                              description: "SOIL PARAMETERS",
-                              field1: "SOIL NITROGEN",
-                              field2: "SOIL PHOSPHOROUS", 
-                              field3: "SOIL POTASSIUM",
-                              field4: "SOIL pH",
-                              field5: "SOIL TEMPERATURE",
-                              field6: "SOIL MOISTURE",
-                              field7: "SOIL EC",
-                              field8: "SOIL HUMIDITY"
-                            };
-                            
-                            last = {
-                              field1: "68.4",    // soilMoisture (but field is named "SOIL NITROGEN")
-                              field2: "50",      // N (but field is named "SOIL PHOSPHOROUS")
-                              field3: "20",      // P (but field is named "SOIL POTASSIUM")
-                              field4: "40",      // K (but field is named "SOIL pH")
-                              field5: "1.5",     // EC (but field is named "SOIL TEMPERATURE")
-                              field6: "7.0",     // npkPH (but field is named "SOIL MOISTURE")
-                              field7: "25.0",    // npkTemp (but field is named "SOIL EC")
-                              field8: "55.0",    // npkHum (but field is named "SOIL HUMIDITY")
-                              created_at: new Date().toISOString()
-                            };
-                            
-                            console.log('🧪 Using sample data for testing:', { channelData, last });
-                          }
+                          const chRes = await fetch(channelUrl);
+                          console.log('Channel response status:', chRes.status, chRes.statusText);
 
-                          // Map ThingSpeak field names to our form keys based on Arduino code structure
-                          const currentParam = inputMode && inputMode.endsWith('water') ? 'water' : 'soil';
-                          const mapFieldNameToKey = (name) => {
-                            if (!name) return null;
-                            const n = String(name).toLowerCase();
-                            
-                            // Based on your ThingSpeak channel field names:
-                            // Field 1: "SOIL NITROGEN" (but Arduino sends soilMoisture here)
-                            // Field 2: "SOIL PHOSPHOROUS" (but Arduino sends N here)
-                            // Field 3: "SOIL POTASSIUM" (but Arduino sends P here)
-                            // Field 4: "SOIL pH" (but Arduino sends K here)
-                            // Field 5: "SOIL TEMPERATURE" (but Arduino sends EC here)
-                            // Field 6: "SOIL MOISTURE" (but Arduino sends npkPH here)
-                            // Field 7: "SOIL EC" (but Arduino sends npkTemp here)
-                            // Field 8: "SOIL HUMIDITY" (but Arduino sends npkHum here)
-                            
-                            // Direct mapping based on your ThingSpeak field names
-                            if (n.includes('nitrogen')) return 'nitrogen';
-                            if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
-                            if (n.includes('potassium')) return 'potassium';
-                            if (n.includes('temperature')) return 'temperature';
-                            if (n.includes('moisture')) return 'moisture';
-                            if (n.includes('ec')) return 'soil_ec';
-                            if (n.includes('humidity')) return 'soil_humidity';
-                            if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
-                            
-                            return null;
-                          };
+                          if (!chRes.ok) throw new Error(`Channel fetch failed: ${chRes.status}`);
+                          channelData = await chRes.json();
+                          console.log('Channel data received:', channelData);
 
-                          const newForm = { ...form };
-                          
-                          // Enhanced debugging and data mapping
-                          console.group('🔍 ThingSpeak Data Analysis');
-                          console.log('Channel Data:', channelData);
-                          console.log('Last Feed:', last);
-                          console.log('Channel Fields:', {
-                            field1: channelData.field1,
-                            field2: channelData.field2,
-                            field3: channelData.field3,
-                            field4: channelData.field4,
-                            field5: channelData.field5,
-                            field6: channelData.field6,
-                            field7: channelData.field7,
-                            field8: channelData.field8
-                          });
-                          
-                          if (last) {
-                            console.log('Feed Values:', {
-                              field1: last.field1,
-                              field2: last.field2,
-                              field3: last.field3,
-                              field4: last.field4,
-                              field5: last.field5,
-                              field6: last.field6,
-                              field7: last.field7,
-                              field8: last.field8
-                            });
-                            
-                            let mappedCount = 0;
-                            for (let i = 1; i <= 8; i++) {
-                              const fname = channelData[`field${i}`];
-                              const fval = last[`field${i}`];
-                              const key = mapFieldNameToKey(fname);
-                              
-                              console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
-                              
-                              if (key && fval != null && fval !== '') {
-                                const num = parseFloat(fval);
-                                newForm[key] = isNaN(num) ? fval : num;
-                                mappedCount++;
-                                console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
-                              } else if (fname) {
-                                console.log(`❌ Skipped: ${fname} (${fval}) - ${!key ? 'no mapping' : 'empty value'}`);
-                              }
-                            }
-                            
-                            console.log(`📊 Successfully mapped ${mappedCount} fields`);
-                            
-                            // Only set day if we have mapped data and a valid timestamp
-                            if (mappedCount > 0 && last.created_at) {
-                              newForm.day = last.created_at;
-                              console.log(`📅 Set timestamp: ${last.created_at}`);
-                            }
+                          const feedUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}/feeds.json?results=1`;
+                          console.log('Feed URL:', feedUrl);
+
+                          const feedRes = await fetch(feedUrl);
+                          console.log('Feed response status:', feedRes.status, feedRes.statusText);
+
+                          if (feedRes.ok) {
+                            const feedData = await feedRes.json().catch(() => null);
+                            console.log('Feed data received:', feedData);
+                            last = feedData?.feeds?.[0] ?? null;
+                            console.log('Last feed:', last);
+                            if (last) channelData.feeds = feedData.feeds;
                           } else {
-                            console.log('❌ No feed data available');
-                            
-                            // Fallback: Check if data is in channelData.feeds
-                            if (channelData.feeds && Array.isArray(channelData.feeds) && channelData.feeds.length > 0) {
-                              console.log('🔄 Trying fallback: using channelData.feeds');
-                              const fallbackFeed = channelData.feeds[0];
-                              
-                              let mappedCount = 0;
-                              for (let i = 1; i <= 8; i++) {
-                                const fname = channelData[`field${i}`];
-                                const fval = fallbackFeed[`field${i}`];
-                                const key = mapFieldNameToKey(fname);
-                                
-                                if (key && fval != null && fval !== '') {
-                                  const num = parseFloat(fval);
-                                  newForm[key] = isNaN(num) ? fval : num;
-                                  mappedCount++;
-                                  console.log(`✅ Fallback mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
-                                }
-                              }
-                              
-                              if (mappedCount > 0 && fallbackFeed.created_at) {
-                                newForm.day = fallbackFeed.created_at;
-                                console.log(`📅 Fallback timestamp: ${fallbackFeed.created_at}`);
-                              }
-                            }
+                            console.log('Feed fetch failed:', feedRes.status, feedRes.statusText);
                           }
-                          
-                          console.log('Final form data:', newForm);
-                          console.groupEnd();
+                        } catch (clientErr) {
+                          // If client can't fetch (CORS or private channel), fallback to server-side fetch
+                          console.log('❌ Client-side fetch failed:', clientErr?.message ?? clientErr);
+                          console.log('🔄 Falling back to server-side fetch...');
 
-                          setForm(newForm);
-                        } catch (err) {
-                          console.error('ThingSpeak fetch/fill error:', err);
-                          setTsError(String(err.message ?? err));
-                        } finally {
-                          setTsLoading(false);
+                          const serverUrl = `/api/thingspeak?id=${encodeURIComponent(tsChannelId)}&fetch=1`;
+                          console.log('Server URL:', serverUrl);
+
+                          const apiRes = await fetch(serverUrl);
+                          console.log('Server response status:', apiRes.status, apiRes.statusText);
+
+                          if (!apiRes.ok) {
+                            const txt = await apiRes.text().catch(() => '');
+                            throw new Error(`Server fetch failed: ${apiRes.status} ${txt}`);
+                          }
+                          const apiJson = await apiRes.json();
+                          console.log('Server response:', apiJson);
+
+                          if (!apiJson?.success) throw new Error(apiJson?.message || 'Server fetch returned an error');
+                          channelData = apiJson.channel;
+                          last = (channelData?.feeds && channelData.feeds[0]) || null;
+                          console.log('Server channel data:', channelData);
+                          console.log('Server last feed:', last);
                         }
-                      }}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 transition-colors"
-                      disabled={tsLoading}
-                    >
-                      {tsLoading ? 'Fetching...' : 'Fetch & Fill'}
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => {
-                        console.group('🧪 Test Mapping with Generated Fake Data');
-                        console.log('*** DEMO MODE: Generating fake sensor data... ***');
-                        
-                        // Base values (equivalent to your Arduino BASE_ constants)
-                        const BASE_N = 297;
-                        const BASE_P = 23;
-                        const BASE_K = 493;
-                        const BASE_EC = 1.79;
-                        const BASE_PH = 7.0;
-                        const BASE_TEMP = 28.0;
-                        const BASE_HUMIDITY = 95.0;
-                        const BASE_MOISTURE = 98.0;
-                        const BASE_WATER_PH = 7.1;
-                        const BASE_WATER_TEMP = 26.0;
-                        
-                        // Generate fake data function (converted from your Arduino code)
-                        function generateFakeData() {
-                          console.log('*** DEMO MODE: Generating fake sensor data... ***');
-                          
-                          // Generate data that fluctuates slightly around base values
-                          const N = BASE_N + Math.floor(Math.random() * 11) - 5; // 292 to 302
-                          const P = BASE_P + Math.floor(Math.random() * 5) - 2; // 21 to 25
-                          const K = BASE_K + Math.floor(Math.random() * 15) - 7; // 486 to 500
-                          const EC = BASE_EC + (Math.floor(Math.random() * 11 - 5) / 100.0); // 1.74 to 1.84
-                          const npkPH = BASE_PH + (Math.floor(Math.random() * 21 - 10) / 100.0); // 6.90 to 7.10
-                          const npkTemp = BASE_TEMP + (Math.floor(Math.random() * 9 - 4) / 10.0); // 27.6 to 28.4
-                          const npkHum = BASE_HUMIDITY + (Math.floor(Math.random() * 31 - 15) / 10.0); // 93.5 to 96.5
-                          const soilMoisture = BASE_MOISTURE + (Math.floor(Math.random() * 41 - 20) / 10.0); // 96.0 to 100.0
-                          
-                          // Water sensor data (based on your Arduino function)
-                          const waterPH = BASE_WATER_PH + (Math.floor(Math.random() * 17 - 8) / 100.0); // 7.02 to 7.18
-                          const waterTemp = BASE_WATER_TEMP + (Math.floor(Math.random() * 11 - 5) / 10.0); // 25.5 to 26.5
-                          
-                          // Constrain values to realistic ranges
-                          const constrainedSoilMoisture = Math.max(0, Math.min(100, soilMoisture));
-                          const constrainedNpkHum = Math.max(0, Math.min(100, npkHum));
-                          const constrainedWaterPH = Math.max(6.0, Math.min(8.5, waterPH));
-                          const constrainedWaterTemp = Math.max(15, Math.min(35, waterTemp));
-                          
-                          console.log('Generated sensor values:');
-                          console.log(`Soil: N=${N}, P=${P}, K=${K}, pH=${npkPH.toFixed(2)}, EC=${EC.toFixed(2)}, Moisture=${constrainedSoilMoisture.toFixed(1)}%, Temp=${npkTemp.toFixed(1)}°C, Humidity=${constrainedNpkHum.toFixed(1)}%`);
-                          console.log(`Water: pH=${constrainedWaterPH.toFixed(2)}, Temp=${constrainedWaterTemp.toFixed(1)}°C`);
-                          
-                          return {
-                            N: N,
-                            P: P,
-                            K: K,
-                            EC: EC,
-                            npkPH: npkPH,
-                            npkTemp: npkTemp,
-                            npkHum: constrainedNpkHum,
-                            soilMoisture: constrainedSoilMoisture,
-                            waterPH: constrainedWaterPH,
-                            waterTemp: constrainedWaterTemp
+
+                        if (!channelData) {
+                          console.log('❌ No channel data returned, trying with sample data...');
+
+                          // Test with sample data matching your ThingSpeak field names
+                          channelData = {
+                            id: 3110372,
+                            name: "VASUDHA 1",
+                            description: "SOIL PARAMETERS",
+                            field1: "SOIL NITROGEN",
+                            field2: "SOIL PHOSPHOROUS",
+                            field3: "SOIL POTASSIUM",
+                            field4: "SOIL pH",
+                            field5: "SOIL TEMPERATURE",
+                            field6: "SOIL MOISTURE",
+                            field7: "SOIL EC",
+                            field8: "SOIL HUMIDITY"
                           };
+
+                          last = {
+                            field1: "68.4",    // soilMoisture (but field is named "SOIL NITROGEN")
+                            field2: "50",      // N (but field is named "SOIL PHOSPHOROUS")
+                            field3: "20",      // P (but field is named "SOIL POTASSIUM")
+                            field4: "40",      // K (but field is named "SOIL pH")
+                            field5: "1.5",     // EC (but field is named "SOIL TEMPERATURE")
+                            field6: "7.0",     // npkPH (but field is named "SOIL MOISTURE")
+                            field7: "25.0",    // npkTemp (but field is named "SOIL EC")
+                            field8: "55.0",    // npkHum (but field is named "SOIL HUMIDITY")
+                            created_at: new Date().toISOString()
+                          };
+
+                          console.log('🧪 Using sample data for testing:', { channelData, last });
                         }
-                        
-                        // Generate fake data
-                        const fakeData = generateFakeData();
-                        console.log('Generated fake data:', fakeData);
-                        
-                        const sampleChannelData = {
-                          field1: "SOIL NITROGEN",
-                          field2: "SOIL PHOSPHOROUS", 
-                          field3: "SOIL POTASSIUM",
-                          field4: "SOIL pH",
-                          field5: "SOIL TEMPERATURE",
-                          field6: "SOIL MOISTURE",
-                          field7: "SOIL EC",
-                          field8: "SOIL HUMIDITY"
-                        };
-                        
-                        // Use generated fake data in the correct Arduino order
-                        const sampleFeed = {
-                          field1: fakeData.soilMoisture.toFixed(1),    // soilMoisture (but field named "SOIL NITROGEN")
-                          field2: fakeData.N.toString(),               // N (but field named "SOIL PHOSPHOROUS")
-                          field3: fakeData.P.toString(),               // P (but field named "SOIL POTASSIUM")
-                          field4: fakeData.K.toString(),               // K (but field named "SOIL pH")
-                          field5: fakeData.EC.toFixed(2),             // EC (but field named "SOIL TEMPERATURE")
-                          field6: fakeData.npkPH.toFixed(2),          // npkPH (but field named "SOIL MOISTURE")
-                          field7: fakeData.npkTemp.toFixed(1),        // npkTemp (but field named "SOIL EC")
-                          field8: fakeData.npkHum.toFixed(1)          // npkHum (but field named "SOIL HUMIDITY")
-                        };
-                        
-                        console.log('Sample feed with fake data:', sampleFeed);
-                        
+
+                        // Map ThingSpeak field names to our form keys based on Arduino code structure
+                        const currentParam = inputMode && inputMode.endsWith('water') ? 'water' : 'soil';
                         const mapFieldNameToKey = (name) => {
                           if (!name) return null;
                           const n = String(name).toLowerCase();
-                          
+
+                          // Based on your ThingSpeak channel field names:
+                          // Field 1: "SOIL NITROGEN" (but Arduino sends soilMoisture here)
+                          // Field 2: "SOIL PHOSPHOROUS" (but Arduino sends N here)
+                          // Field 3: "SOIL POTASSIUM" (but Arduino sends P here)
+                          // Field 4: "SOIL pH" (but Arduino sends K here)
+                          // Field 5: "SOIL TEMPERATURE" (but Arduino sends EC here)
+                          // Field 6: "SOIL MOISTURE" (but Arduino sends npkPH here)
+                          // Field 7: "SOIL EC" (but Arduino sends npkTemp here)
+                          // Field 8: "SOIL HUMIDITY" (but Arduino sends npkHum here)
+
                           // Direct mapping based on your ThingSpeak field names
                           if (n.includes('nitrogen')) return 'nitrogen';
                           if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
@@ -883,41 +675,247 @@ export default function Home() {
                           if (n.includes('ec')) return 'soil_ec';
                           if (n.includes('humidity')) return 'soil_humidity';
                           if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
+
                           return null;
                         };
-                        
+
                         const newForm = { ...form };
-                        let mappedCount = 0;
-                        
-                        for (let i = 1; i <= 8; i++) {
-                          const fname = sampleChannelData[`field${i}`];
-                          const fval = sampleFeed[`field${i}`];
-                          const key = mapFieldNameToKey(fname);
-                          
-                          console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
-                          
-                          if (key && fval != null && fval !== '') {
-                            const num = parseFloat(fval);
-                            newForm[key] = isNaN(num) ? fval : num;
-                            mappedCount++;
-                            console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
+
+                        // Enhanced debugging and data mapping
+                        console.group('🔍 ThingSpeak Data Analysis');
+                        console.log('Channel Data:', channelData);
+                        console.log('Last Feed:', last);
+                        console.log('Channel Fields:', {
+                          field1: channelData.field1,
+                          field2: channelData.field2,
+                          field3: channelData.field3,
+                          field4: channelData.field4,
+                          field5: channelData.field5,
+                          field6: channelData.field6,
+                          field7: channelData.field7,
+                          field8: channelData.field8
+                        });
+
+                        if (last) {
+                          console.log('Feed Values:', {
+                            field1: last.field1,
+                            field2: last.field2,
+                            field3: last.field3,
+                            field4: last.field4,
+                            field5: last.field5,
+                            field6: last.field6,
+                            field7: last.field7,
+                            field8: last.field8
+                          });
+
+                          let mappedCount = 0;
+                          for (let i = 1; i <= 8; i++) {
+                            const fname = channelData[`field${i}`];
+                            const fval = last[`field${i}`];
+                            const key = mapFieldNameToKey(fname);
+
+                            console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
+
+                            if (key && fval != null && fval !== '') {
+                              const num = parseFloat(fval);
+                              newForm[key] = isNaN(num) ? fval : num;
+                              mappedCount++;
+                              console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
+                            } else if (fname) {
+                              console.log(`❌ Skipped: ${fname} (${fval}) - ${!key ? 'no mapping' : 'empty value'}`);
+                            }
+                          }
+
+                          console.log(`📊 Successfully mapped ${mappedCount} fields`);
+
+                          // Only set day if we have mapped data and a valid timestamp
+                          if (mappedCount > 0 && last.created_at) {
+                            newForm.day = last.created_at;
+                            console.log(`📅 Set timestamp: ${last.created_at}`);
+                          }
+                        } else {
+                          console.log('❌ No feed data available');
+
+                          // Fallback: Check if data is in channelData.feeds
+                          if (channelData.feeds && Array.isArray(channelData.feeds) && channelData.feeds.length > 0) {
+                            console.log('🔄 Trying fallback: using channelData.feeds');
+                            const fallbackFeed = channelData.feeds[0];
+
+                            let mappedCount = 0;
+                            for (let i = 1; i <= 8; i++) {
+                              const fname = channelData[`field${i}`];
+                              const fval = fallbackFeed[`field${i}`];
+                              const key = mapFieldNameToKey(fname);
+
+                              if (key && fval != null && fval !== '') {
+                                const num = parseFloat(fval);
+                                newForm[key] = isNaN(num) ? fval : num;
+                                mappedCount++;
+                                console.log(`✅ Fallback mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
+                              }
+                            }
+
+                            if (mappedCount > 0 && fallbackFeed.created_at) {
+                              newForm.day = fallbackFeed.created_at;
+                              console.log(`📅 Fallback timestamp: ${fallbackFeed.created_at}`);
+                            }
                           }
                         }
-                        
-                        console.log(`📊 Successfully mapped ${mappedCount} fields`);
+
                         console.log('Final form data:', newForm);
                         console.groupEnd();
-                        
+
                         setForm(newForm);
-                        setTsError(null);
-                      }}
-                      className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
-                    >
-                      Test Mapping
-                    </button>
-                    
-                  </div>
-                )}
+                      } catch (err) {
+                        console.error('ThingSpeak fetch/fill error:', err);
+                        setTsError(String(err.message ?? err));
+                      } finally {
+                        setTsLoading(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 transition-colors"
+                    disabled={tsLoading}
+                  >
+                    {tsLoading ? 'Fetching...' : 'Fetch & Fill'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.group('🧪 Test Mapping with Generated Fake Data');
+                      console.log('*** DEMO MODE: Generating fake sensor data... ***');
+
+                      // Base values (equivalent to your Arduino BASE_ constants)
+                      const BASE_N = 297;
+                      const BASE_P = 23;
+                      const BASE_K = 493;
+                      const BASE_EC = 1.79;
+                      const BASE_PH = 7.0;
+                      const BASE_TEMP = 28.0;
+                      const BASE_HUMIDITY = 95.0;
+                      const BASE_MOISTURE = 98.0;
+                      const BASE_WATER_PH = 7.1;
+                      const BASE_WATER_TEMP = 26.0;
+
+                      // Generate fake data function (converted from your Arduino code)
+                      function generateFakeData() {
+                        console.log('*** DEMO MODE: Generating fake sensor data... ***');
+
+                        // Generate data that fluctuates slightly around base values
+                        const N = BASE_N + Math.floor(Math.random() * 11) - 5; // 292 to 302
+                        const P = BASE_P + Math.floor(Math.random() * 5) - 2; // 21 to 25
+                        const K = BASE_K + Math.floor(Math.random() * 15) - 7; // 486 to 500
+                        const EC = BASE_EC + (Math.floor(Math.random() * 11 - 5) / 100.0); // 1.74 to 1.84
+                        const npkPH = BASE_PH + (Math.floor(Math.random() * 21 - 10) / 100.0); // 6.90 to 7.10
+                        const npkTemp = BASE_TEMP + (Math.floor(Math.random() * 9 - 4) / 10.0); // 27.6 to 28.4
+                        const npkHum = BASE_HUMIDITY + (Math.floor(Math.random() * 31 - 15) / 10.0); // 93.5 to 96.5
+                        const soilMoisture = BASE_MOISTURE + (Math.floor(Math.random() * 41 - 20) / 10.0); // 96.0 to 100.0
+
+                        // Water sensor data (based on your Arduino function)
+                        const waterPH = BASE_WATER_PH + (Math.floor(Math.random() * 17 - 8) / 100.0); // 7.02 to 7.18
+                        const waterTemp = BASE_WATER_TEMP + (Math.floor(Math.random() * 11 - 5) / 10.0); // 25.5 to 26.5
+
+                        // Constrain values to realistic ranges
+                        const constrainedSoilMoisture = Math.max(0, Math.min(100, soilMoisture));
+                        const constrainedNpkHum = Math.max(0, Math.min(100, npkHum));
+                        const constrainedWaterPH = Math.max(6.0, Math.min(8.5, waterPH));
+                        const constrainedWaterTemp = Math.max(15, Math.min(35, waterTemp));
+
+                        console.log('Generated sensor values:');
+                        console.log(`Soil: N=${N}, P=${P}, K=${K}, pH=${npkPH.toFixed(2)}, EC=${EC.toFixed(2)}, Moisture=${constrainedSoilMoisture.toFixed(1)}%, Temp=${npkTemp.toFixed(1)}°C, Humidity=${constrainedNpkHum.toFixed(1)}%`);
+                        console.log(`Water: pH=${constrainedWaterPH.toFixed(2)}, Temp=${constrainedWaterTemp.toFixed(1)}°C`);
+
+                        return {
+                          N: N,
+                          P: P,
+                          K: K,
+                          EC: EC,
+                          npkPH: npkPH,
+                          npkTemp: npkTemp,
+                          npkHum: constrainedNpkHum,
+                          soilMoisture: constrainedSoilMoisture,
+                          waterPH: constrainedWaterPH,
+                          waterTemp: constrainedWaterTemp
+                        };
+                      }
+
+                      // Generate fake data
+                      const fakeData = generateFakeData();
+                      console.log('Generated fake data:', fakeData);
+
+                      const sampleChannelData = {
+                        field1: "SOIL NITROGEN",
+                        field2: "SOIL PHOSPHOROUS",
+                        field3: "SOIL POTASSIUM",
+                        field4: "SOIL pH",
+                        field5: "SOIL TEMPERATURE",
+                        field6: "SOIL MOISTURE",
+                        field7: "SOIL EC",
+                        field8: "SOIL HUMIDITY"
+                      };
+
+                      // Use generated fake data in the correct Arduino order
+                      const sampleFeed = {
+                        field1: fakeData.soilMoisture.toFixed(1),    // soilMoisture (but field named "SOIL NITROGEN")
+                        field2: fakeData.N.toString(),               // N (but field named "SOIL PHOSPHOROUS")
+                        field3: fakeData.P.toString(),               // P (but field named "SOIL POTASSIUM")
+                        field4: fakeData.K.toString(),               // K (but field named "SOIL pH")
+                        field5: fakeData.EC.toFixed(2),             // EC (but field named "SOIL TEMPERATURE")
+                        field6: fakeData.npkPH.toFixed(2),          // npkPH (but field named "SOIL MOISTURE")
+                        field7: fakeData.npkTemp.toFixed(1),        // npkTemp (but field named "SOIL EC")
+                        field8: fakeData.npkHum.toFixed(1)          // npkHum (but field named "SOIL HUMIDITY")
+                      };
+
+                      console.log('Sample feed with fake data:', sampleFeed);
+
+                      const mapFieldNameToKey = (name) => {
+                        if (!name) return null;
+                        const n = String(name).toLowerCase();
+
+                        // Direct mapping based on your ThingSpeak field names
+                        if (n.includes('nitrogen')) return 'nitrogen';
+                        if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
+                        if (n.includes('potassium')) return 'potassium';
+                        if (n.includes('temperature')) return 'temperature';
+                        if (n.includes('moisture')) return 'moisture';
+                        if (n.includes('ec')) return 'soil_ec';
+                        if (n.includes('humidity')) return 'soil_humidity';
+                        if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
+                        return null;
+                      };
+
+                      const newForm = { ...form };
+                      let mappedCount = 0;
+
+                      for (let i = 1; i <= 8; i++) {
+                        const fname = sampleChannelData[`field${i}`];
+                        const fval = sampleFeed[`field${i}`];
+                        const key = mapFieldNameToKey(fname);
+
+                        console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
+
+                        if (key && fval != null && fval !== '') {
+                          const num = parseFloat(fval);
+                          newForm[key] = isNaN(num) ? fval : num;
+                          mappedCount++;
+                          console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
+                        }
+                      }
+
+                      console.log(`📊 Successfully mapped ${mappedCount} fields`);
+                      console.log('Final form data:', newForm);
+                      console.groupEnd();
+
+                      setForm(newForm);
+                      setTsError(null);
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
+                  >
+                    Test Mapping
+                  </button>
+
+                </div>
+              )}
               <input name="day" type="text" value={form.day} onChange={handleFormChange} placeholder="Sample Number (e.g. S1)" className="border rounded px-4 py-2" required />
               <input name="email" type="email" value={form.email} onChange={handleFormChange} placeholder="Email for report" className="border rounded px-4 py-2" required />
               {inputMode && inputMode.endsWith('soil') ? (
@@ -940,9 +938,9 @@ export default function Home() {
                 <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 transition">Add Sample</button>
                 <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition" onClick={() => setShowFertilizerModal(true)} disabled={samples.length === 0}>Finish</button>
                 {inputMode && inputMode.endsWith('soil') && (
-                  <button 
-                    type="button" 
-                    className="bg-purple-600 text-white px-6 py-2 rounded shadow hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed" 
+                  <button
+                    type="button"
+                    className="bg-purple-600 text-white px-6 py-2 rounded shadow hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                     onClick={getMLPredictions}
                     disabled={mlLoading || !form.nitrogen || !form.phosphorous || !form.potassium || !form.ph || !form.moisture || !form.temperature}
                   >
@@ -992,7 +990,7 @@ export default function Home() {
       {/* Main dashboard sections */}
       <section className="max-w-7xl mx-auto px-4 pb-8">
         {/* Soil Parameter Analysis for each sample */}
-  {!finished && samples.filter(s => s.type === 'soil' || s.type === undefined).map((sample, idx) => {
+        {!finished && samples.filter(s => s.type === 'soil' || s.type === undefined).map((sample, idx) => {
           const std = getStandardValues(sample.crop);
           const chartData = [
             { month: "Nitrogen", desktop: std.nitrogen, mobile: sample.nitrogen },
@@ -1019,7 +1017,7 @@ export default function Home() {
         {finished && fertilizerType && (() => {
           const fertilizers = fertilizerType === 'organic' ? organicFertilizers : inorganicFertilizers;
           const fertilizerTypeName = fertilizerType === 'organic' ? 'Organic' : 'Inorganic';
-          
+
           return (
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 mb-8">
               <div className="text-center mb-6">
@@ -1030,7 +1028,7 @@ export default function Home() {
                   Recommended {fertilizerTypeName.toLowerCase()} fertilizers for your soil analysis
                 </p>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-center border-collapse">
                   <thead>
@@ -1091,7 +1089,7 @@ export default function Home() {
             cropGroups[sample.crop].push(sample);
           });
           // Prices per kg for nutrients based on selected fertilizer type
-          const prices = fertilizerType === 'organic' ? 
+          const prices = fertilizerType === 'organic' ?
             { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
             { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
           // Render graphs for each crop
@@ -1131,7 +1129,7 @@ export default function Home() {
         })()}
 
         {/* Overall summary table for all crops and samples */}
-  {finished && (() => {
+        {finished && (() => {
           // Group samples by crop
           const cropGroups = {};
           samples.filter(s => s.type === 'soil' || s.type === undefined).forEach(sample => {
@@ -1139,7 +1137,7 @@ export default function Home() {
             cropGroups[sample.crop].push(sample);
           });
           // Prices per kg for nutrients based on selected fertilizer type
-          const prices = fertilizerType === 'organic' ? 
+          const prices = fertilizerType === 'organic' ?
             { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
             { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
           // Calculate totals
@@ -1214,6 +1212,19 @@ export default function Home() {
             <SendReportButton samples={samples} cropOptions={cropOptions} organicFertilizers={organicFertilizers} inorganicFertilizers={inorganicFertilizers} inorganicPrices={inorganicPrices} fertilizerType={fertilizerType} />
           </div>
         )}
+
+        {/* Link to Krishi Fertilizer Hub */}
+        {finished && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8 text-center transition-all hover:shadow-md">
+            <h3 className="text-xl font-bold text-green-800 mb-2">Buy Recommended Fertilizers</h3>
+            <p className="mb-4 text-green-700">Find nearby stores and purchase the recommended fertilizers directly from our hub.</p>
+            <Link href="/krishi-fertilizer-hub" target="_blank" rel="noopener noreferrer">
+              <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-6 text-lg rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto">
+                <span>🛒</span> Visit Krishi Fertilizer Hub
+              </Button>
+            </Link>
+          </div>
+        )}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
             Advanced Analytics Dashboard
@@ -1222,7 +1233,7 @@ export default function Home() {
             Comprehensive data visualization with time series, 3D effects, radar analysis, and distribution charts
           </p>
         </div>
-  <ChartsContainer samples={samples} />
+        <ChartsContainer samples={samples} />
 
         {/* Fertilizer Analysis Section removed as per user request */}
       </section>
@@ -1233,7 +1244,7 @@ export default function Home() {
           <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl">
             <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Select Fertilizer Type</h3>
             <p className="text-gray-600 mb-6 text-center">Choose the type of fertilizer you plan to use for your crops:</p>
-            
+
             <div className="space-y-4">
               <button
                 onClick={() => {
@@ -1252,7 +1263,7 @@ export default function Home() {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => {
                   setFertilizerType('inorganic');
@@ -1271,7 +1282,7 @@ export default function Home() {
                 </div>
               </button>
             </div>
-            
+
             <button
               onClick={() => setShowFertilizerModal(false)}
               className="w-full mt-6 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
