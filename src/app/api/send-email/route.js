@@ -22,6 +22,20 @@ Font.register({
   ]
 });
 
+Font.register({
+  family: 'HindVadodara',
+  fonts: [
+    {
+      src: path.join(fontsDir, 'HindVadodara-Regular.ttf'),
+      fontWeight: 400
+    },
+    {
+      src: path.join(fontsDir, 'HindVadodara-Bold.ttf'),
+      fontWeight: 700
+    }
+  ]
+});
+
 const interpolate = (str, params) => {
   let res = str;
   if (!params) return res;
@@ -343,7 +357,15 @@ const styles = StyleSheet.create({
 async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData, language = 'en') {
   try {
     const t = translations[language] || translations.en;
-    const fontStyle = { fontFamily: language === 'hi' ? 'Hind' : 'Helvetica' };
+
+    let fontFamily = 'Helvetica';
+    if (language === 'hi' || language === 'mr') {
+      fontFamily = 'Hind';
+    } else if (language === 'gu') {
+      fontFamily = 'HindVadodara';
+    }
+
+    const fontStyle = { fontFamily };
     const interpolate = (text, params) => {
       let result = text;
       for (const key in params) {
