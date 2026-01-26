@@ -3,7 +3,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 
+/**
+ * Component: Chatbot
+ * Purpose: Provides an interactive conversational interface for users to 
+ *          query agricultural insights and general knowledge.
+ * 
+ * Features:
+ * - Real-time turn-based messaging via Google Gemini.
+ * - Persistent conversation history within the session.
+ * - Quick-action prompt suggestions for improved UX.
+ * 
+ * @param {Object} props - User profile and UI state controls.
+ */
 export default function Chatbot({ user, isOpen, onClose }) {
+  // Conversational state and message ledger
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -16,12 +29,21 @@ export default function Chatbot({ user, isOpen, onClose }) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
+  /**
+   * UI Sync: Auto-Scroll
+   * Ensures the viewport remains anchored to the most recent response.
+   */
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(scrollToBottom, [messages]);
 
+  /**
+   * Transmits user input to the backend LLM service.
+   * Manages the request lifecycle including optimistic UI updates and 
+   * error state handling.
+   */
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -132,32 +154,30 @@ export default function Chatbot({ user, isOpen, onClose }) {
               className={`mb-4 flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] p-3 rounded-lg ${
-                  message.type === 'user'
-                    ? 'bg-green-600 text-white rounded-br-none'
-                    : 'bg-white text-gray-800 shadow-sm border rounded-bl-none'
-                }`}
+                className={`max-w-[80%] p-3 rounded-lg ${message.type === 'user'
+                  ? 'bg-green-600 text-white rounded-br-none'
+                  : 'bg-white text-gray-800 shadow-sm border rounded-bl-none'
+                  }`}
               >
                 <p className="text-sm whitespace-pre-wrap">{message.message}</p>
-                <p className={`text-xs mt-1 ${
-                  message.type === 'user' ? 'text-green-100' : 'text-gray-500'
-                }`}>
-                  {message.timestamp.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
+                <p className={`text-xs mt-1 ${message.type === 'user' ? 'text-green-100' : 'text-gray-500'
+                  }`}>
+                  {message.timestamp.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
                   })}
                 </p>
               </div>
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="flex justify-start mb-4">
               <div className="bg-white text-gray-800 shadow-sm border rounded-lg rounded-bl-none p-3 max-w-[80%]">
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
               </div>
             </div>

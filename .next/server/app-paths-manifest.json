@@ -1,7 +1,7 @@
 {
-  "/api/appointment/[id]/route": "app/api/appointment/[id]/route.js",
-  "/api/send-email/route": "app/api/send-email/route.js",
-  "/api/thingspeak/route": "app/api/thingspeak/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/weather/route": "app/api/weather/route.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js"
 }

@@ -1,8 +1,24 @@
 "use client";
 
+/**
+ * Component: AuthForm
+ * Purpose: Provides a secure interface for user authentication and 
+ *          profile registration via internal backend API routes.
+ * 
+ * Flow:
+ * 1. Collects user credentials (email, password, metadata).
+ * 2. Authenticates against the backend login/register endpoints.
+ * 3. Synchronizes session state to the parent dashboard.
+ */
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 
+/**
+ * Stateful authentication component.
+ * Supports toggle between 'Sign In' and 'Sign Up' modes with dynamic 
+ * metadata collection for agricultural profiles.
+ */
 const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,7 +32,10 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
     phoneNumber: ''
   });
 
-  // Handle form input changes
+  /**
+   * Universal Input Handler
+   * Maps field names to state keys for the unified auth form object.
+   */
   const handleAuthFormChange = (e) => {
     const { name, value } = e.target;
     setAuthForm((prev) => ({
@@ -25,7 +44,10 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
     }));
   };
 
-  // Handle form submission
+  /**
+   * Orchestrates the authentication lifecycle.
+   * Directs requests to either the registration or login API pathways.
+   */
   const handleAuth = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -99,7 +121,7 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
           });
           setIsSignUpMode(false);
         } else {
-          alert(`Registration failed: ${result.message}`);
+          alert(`Registration failed: ${result.message} `);
         }
       } catch (error) {
         console.error('Registration error:', error);
@@ -115,7 +137,7 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
 
       try {
         const loginEmail = username === 'crop' ? 'crop@demo.com' : username;
-        
+
         const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
@@ -131,38 +153,38 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
 
         if (result.success) {
           onLogin(result.user);
-          setAuthForm({ 
-            username: '', 
-            password: '', 
-            confirmPassword: '', 
-            name: '', 
-            location: '', 
-            email: '', 
-            phoneNumber: '' 
+          setAuthForm({
+            username: '',
+            password: '',
+            confirmPassword: '',
+            name: '',
+            location: '',
+            email: '',
+            phoneNumber: ''
           });
         } else {
-          alert(`Login failed: ${result.message}`);
+          alert(`Login failed: ${result.message} `);
         }
       } catch (error) {
         console.error('Login error:', error);
         alert('Login failed. Please try again.');
       }
     }
-    
+
     setIsLoading(false);
   };
 
   // Toggle between login and sign-up
   const toggleAuthMode = () => {
     setIsSignUpMode(!isSignUpMode);
-    setAuthForm({ 
-      username: '', 
-      password: '', 
-      confirmPassword: '', 
-      name: '', 
-      location: '', 
-      email: '', 
-      phoneNumber: '' 
+    setAuthForm({
+      username: '',
+      password: '',
+      confirmPassword: '',
+      name: '',
+      location: '',
+      email: '',
+      phoneNumber: ''
     });
   };
 
@@ -171,19 +193,19 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
       />
-      
+
       {/* Modal Container */}
       <div className="flex min-h-full items-center justify-center p-4 text-center">
         <div className="relative transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 w-full max-w-md">
-          
+
           {/* Decorative Top Section */}
           <div className="relative bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 px-6 pt-6 pb-20">
             <div className="absolute inset-0 bg-black/10"></div>
-            
+
             {/* Close Button */}
             <button
               onClick={onClose}
@@ -193,7 +215,7 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            
+
             {/* Logo/Icon */}
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -202,7 +224,7 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
                 </svg>
               </div>
             </div>
-            
+
             {/* Title */}
             <h2 className="text-2xl font-bold text-white text-center mb-2">
               {isSignUpMode ? 'Create Account' : 'Welcome Back'}
@@ -215,17 +237,16 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
           {/* Form Section */}
           <div className="px-6 py-8 -mt-12 relative z-10">
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-              
+
               {/* Mode Toggle */}
               <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
                 <button
                   type="button"
                   onClick={() => !isLoading && setIsSignUpMode(false)}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
-                    !isSignUpMode 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${!isSignUpMode
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                   disabled={isLoading}
                 >
                   Sign In
@@ -233,11 +254,10 @@ const AuthForm = ({ onLogin, onSignup, onClose, isOpen }) => {
                 <button
                   type="button"
                   onClick={() => !isLoading && setIsSignUpMode(true)}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
-                    isSignUpMode 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${isSignUpMode
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                    }`}
                   disabled={isLoading}
                 >
                   Sign Up
