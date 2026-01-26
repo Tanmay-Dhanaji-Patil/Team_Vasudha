@@ -1,3 +1,16 @@
+/**
+ * File: src/utils/translations.js
+ * Purpose: Centralized repository for regional language strings used in 
+ *          UI components, PDF generation, and automated email dispatches.
+ * 
+ * Schema Structure:
+ * Each language key (e.g., 'en', 'hi', 'mr') contains a flat or nested map 
+ * of agricultural terminology, analysis labels, and interactive advice strings.
+ * 
+ * Dynamics:
+ * - {amount}: Dynamic placeholder replaced with calculated metric values at runtime.
+ * - {type}: Dynamic placeholder for input categorization (Organic/Inorganic).
+ */
 export const translations = {
     en: {
         title: "Professional Soil Analysis Report",

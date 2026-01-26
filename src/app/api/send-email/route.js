@@ -1,3 +1,9 @@
+/**
+ * File: src/app/api/send-email/route.js
+ * Purpose: Provides a backend endpoint for generating agricultural soil analysis PDFs 
+ *          and dispatching them via email to stakeholders.
+ */
+
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
@@ -5,7 +11,10 @@ import { supabaseAdmin } from '@/database/supabaseAdmin';
 import { translations } from '@/utils/translations';
 import path from 'path';
 
-// Register Hindi Font - Using local TTF files for maximum reliability
+/**
+ * Configure system-wide fonts for multi-language PDF rendering.
+ * Uses local TTF files to ensure consistency across deployment environments.
+ */
 const fontsDir = path.join(process.cwd(), 'public', 'fonts');
 
 Font.register({
@@ -81,13 +90,24 @@ const BUCKET = 'soil-reports';
 
 export const runtime = 'nodejs';
 
+/**
+ * Main API entry point for report generation and dispatch.
+ * Performs the following:
+ * 1. Sanitizes incoming agricultural telemetry.
+ * 2. Generates a localized PDF report.
+ * 3. Persists the artifact to Supabase Storage.
+ * 4. Dispatches the report via SMTP to relevant parties.
+ */
 export async function POST(request) {
   try {
     const { samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData, language = 'en' } = await request.json();
 
     const t = translations[language] || translations.en;
 
-    // Create transporter with environment variables
+    /**
+     * SMTP Configuration
+     * Uses environment-specific credentials for secure mail transport.
+     */
     const transporter = nodemailer.createTransport({
       service: process.env.SMTP_SERVICE || 'gmail',
       auth: {
@@ -96,7 +116,6 @@ export async function POST(request) {
       }
     });
 
-    // Validate email configuration
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
       return NextResponse.json(
         { success: false, message: 'Email configuration is missing. Please check environment variables.' },
@@ -385,11 +404,28 @@ const styles = StyleSheet.create({
   }
 });
 
-// Generate PDF using React-PDF
+/**
+ * Generates a localized PDF document buffer using React-PDF.
+ * 
+ * @param {Array} samples - Raw soil telemetry data.
+ * @param {Object} cropGroups - Samples aggregated by crop category.
+ * @param {Number} totalCost - Calculated investment requirement.
+ * @param {String} fertilizerType - Selection between 'organic' and 'inorganic'.
+ * @param {Object} organicFertilizers - Catalog of organic inputs.
+ * @param {Object} inorganicFertilizers - Catalog of chemical inputs.
+ * @param {Object} reportData - Metadata (e.g., generation date).
+ * @param {String} language - IETF language tag for localization.
+ * @returns {Promise<Buffer>} - Resolves to the PDF binary data.
+ */
 async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organicFertilizers, inorganicFertilizers, reportData, language = 'en') {
   try {
     const t = translations[language] || translations.en;
 
+    /**
+     * Glyph Selection Logic
+     * Dynamically selects the font family based on the script requirements
+     * of the output language.
+     */
     let fontFamily = 'Helvetica';
     if (language === 'hi' || language === 'mr') {
       fontFamily = 'Hind';

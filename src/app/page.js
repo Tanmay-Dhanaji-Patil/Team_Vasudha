@@ -9,7 +9,19 @@ import AuthForm from "@/components/AuthForm";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 
-// Send Report Button Component
+/**
+ * Component: SendReportButton
+ * Purpose: Analyzes aggregated soil telemetry and transmits a comprehensive
+ *          agricultural evaluation report to the user's registered email.
+ * 
+ * Logic Overview:
+ * 1. Categorizes soil samples by crop affinity.
+ * 2. Benchmarks current nutrient levels against target crop standards.
+ * 3. Quantifies nutrient deficits and extrapolates investment requirements.
+ * 4. Dispatches the finalized projection via the background mail service.
+ * 
+ * @param {Object} props - Telemetry data and fertilizer price catalogs.
+ */
 function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicFertilizers, inorganicPrices, fertilizerType }) {
   const [isLoading, setIsLoading] = useState(false);
   const [emailStatus, setEmailStatus] = useState('');
@@ -29,9 +41,13 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
 
       // Calculate total costs
 
+      /**
+       * Report Generation Payload
+       * Prepares a localized dataset by calculating nutrient gaps and mapping
+       * current market prices to the required supplement volume.
+       */
       const getStandardValues = (cropName) => cropOptions.find(c => c.name === cropName)?.values || cropOptions[0].values;
 
-      // Use selected fertilizer type for pricing
       const prices = fertilizerType === 'organic' ?
         { nitrogen: organicFertilizers.nitrogen[0].price, phosphorous: organicFertilizers.phosphorous[0].price, potassium: organicFertilizers.potassium[0].price } :
         { nitrogen: inorganicFertilizers.nitrogen[0].price, phosphorous: inorganicFertilizers.phosphorous[0].price, potassium: inorganicFertilizers.potassium[0].price };
@@ -41,6 +57,11 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
         const std = getStandardValues(cropName);
         let cropNitrogen = 0, cropPhosphorous = 0, cropPotassium = 0;
         cropSamples.forEach(sample => {
+          /**
+           * Deficit Calculation
+           * Only positive gaps ( nutrient goal > current level) are considered
+           * for investment estimation.
+           */
           cropNitrogen += Math.max(0, std.nitrogen - sample.nitrogen);
           cropPhosphorous += Math.max(0, std.phosphorous - sample.phosphorous);
           cropPotassium += Math.max(0, std.potassium - sample.potassium);
