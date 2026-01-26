@@ -36,6 +36,38 @@ Font.register({
   ]
 });
 
+Font.register({
+  family: 'NotoTelugu',
+  fonts: [
+    { src: path.join(fontsDir, 'NotoSansTelugu-Regular.ttf'), fontWeight: 400 },
+    { src: path.join(fontsDir, 'NotoSansTelugu-Bold.ttf'), fontWeight: 700 }
+  ]
+});
+
+Font.register({
+  family: 'NotoTamil',
+  fonts: [
+    { src: path.join(fontsDir, 'NotoSansTamil-Regular.ttf'), fontWeight: 400 },
+    { src: path.join(fontsDir, 'NotoSansTamil-Bold.ttf'), fontWeight: 700 }
+  ]
+});
+
+Font.register({
+  family: 'NotoKannada',
+  fonts: [
+    { src: path.join(fontsDir, 'NotoSansKannada-Regular.ttf'), fontWeight: 400 },
+    { src: path.join(fontsDir, 'NotoSansKannada-Bold.ttf'), fontWeight: 700 }
+  ]
+});
+
+Font.register({
+  family: 'NotoBengali',
+  fonts: [
+    { src: path.join(fontsDir, 'NotoSansBengali-Regular.ttf'), fontWeight: 400 },
+    { src: path.join(fontsDir, 'NotoSansBengali-Bold.ttf'), fontWeight: 700 }
+  ]
+});
+
 const interpolate = (str, params) => {
   let res = str;
   if (!params) return res;
@@ -363,6 +395,14 @@ async function generatePDF(samples, cropGroups, totalCost, fertilizerType, organ
       fontFamily = 'Hind';
     } else if (language === 'gu') {
       fontFamily = 'HindVadodara';
+    } else if (language === 'te') {
+      fontFamily = 'NotoTelugu';
+    } else if (language === 'ta') {
+      fontFamily = 'NotoTamil';
+    } else if (language === 'kn') {
+      fontFamily = 'NotoKannada';
+    } else if (language === 'bn') {
+      fontFamily = 'NotoBengali';
     }
 
     const fontStyle = { fontFamily };

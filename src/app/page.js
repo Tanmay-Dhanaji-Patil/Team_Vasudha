@@ -98,6 +98,10 @@ function SendReportButton({ samples, cropOptions, organicFertilizers, inorganicF
           <option value="hi">Hindi (हिंदी)</option>
           <option value="mr">Marathi (मराठी)</option>
           <option value="gu">Gujarati (ગુજરાતી)</option>
+          <option value="te">Telugu (తెలుగు)</option>
+          <option value="ta">Tamil (தமிழ்)</option>
+          <option value="kn">Kannada (ಕನ್ನಡ)</option>
+          <option value="bn">Bengali (বাংলা)</option>
         </select>
       </div>
 
