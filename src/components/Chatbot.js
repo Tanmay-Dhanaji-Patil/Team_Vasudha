@@ -162,10 +162,7 @@ export default function Chatbot({ user, isOpen, onClose }) {
                 <p className="text-sm whitespace-pre-wrap">{message.message}</p>
                 <p className={`text-xs mt-1 ${message.type === 'user' ? 'text-green-100' : 'text-gray-500'
                   }`}>
-                  {message.timestamp.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                 
                 </p>
               </div>
             </div>
