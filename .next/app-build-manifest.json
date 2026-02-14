@@ -1,15 +1,11 @@
 {
   "pages": {
-    "/krishi-fertilizer-hub/page": [
+    "/_not-found/page": [
       "static/chunks/node_modules_next_dist_8db7fb1f._.js",
       "static/chunks/src_app_favicon_ico_mjs_243aa161._.js",
       "static/chunks/_7660869d._.js",
       "static/chunks/src_app_globals_91e4631d.css",
       "static/chunks/src_app_layout_0a548d63.js",
-      "static/chunks/node_modules_next_dist_client_components_builtin_global-error_efd6d165.js",
-      "static/chunks/src_components_krishi_MapComponent_3d6d7d5b.js",
-      "static/chunks/_403c4e58._.js",
-      "static/chunks/src_app_krishi-fertilizer-hub_page_efd6d165.js",
       "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_57d40746._.js",
       "static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js",
       "static/chunks/node_modules_next_dist_compiled_next-devtools_index_a9cb0712.js",

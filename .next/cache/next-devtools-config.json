@@ -3,5 +3,5 @@
   "devToolsPanelPosition": {
     "__nextjs-dev-tools-shared-panel-location": "top-left"
   },
-  "theme": "light"
+  "theme": "system"
 }
