@@ -59,12 +59,21 @@ def preprocess_input(data, scaler, le):
     # Create DataFrame
     df = pd.DataFrame([data])
     
-    # Feature Engineering (Must match Mainmodel.py)
+    # 1. OLD Feature Engineering (Required by current gb_model.pkl)
     df['NPK_ratio'] = df['sensor_nitrogen'] + df['sensor_phosphorus'] + df['sensor_potassium']
     df['N_P_ratio'] = df['sensor_nitrogen'] / (df['sensor_phosphorus'] + 1)
     df['N_K_ratio'] = df['sensor_nitrogen'] / (df['sensor_potassium'] + 1)
     df['pH_moisture'] = df['soil_pH'] * df['soil_moisture_percent']
     df['temp_moisture'] = df['soil_temperature_celsius'] * df['soil_moisture_percent']
+    
+    # 2. NEW Feature Engineering (For display only)
+    total_npk = df['sensor_nitrogen'] + df['sensor_phosphorus'] + df['sensor_potassium'] + 1
+    df['N_proportion'] = df['sensor_nitrogen'] / total_npk
+    df['P_proportion'] = df['sensor_phosphorus'] / total_npk
+    df['K_proportion'] = df['sensor_potassium'] / total_npk
+    df['P_K_ratio'] = df['sensor_phosphorus'] / (df['sensor_potassium'] + 1)
+    df['salinity_proxy'] = df['soil_electrical_conductivity_us_cm'] / (df['soil_moisture_percent'] + 1)
+    df['heat_stress_index'] = df['soil_temperature_celsius'] / (df['soil_moisture_percent'] + 1)
     
     # Encode crop type
     try:
@@ -73,19 +82,18 @@ def preprocess_input(data, scaler, le):
         print(f"⚠ Crop type '{data['crop_type']}' not seen in training. Using default (0).", file=sys.stderr)
         df['crop_type_encoded'] = 0
     
-    # Feature list matching Mainmodel.py
+    # Feature list matching the training configuration of gb_model.pkl
     sensor_features = [
-        "sensor_nitrogen",
-        "sensor_phosphorus",
-        "sensor_potassium",
-        "soil_pH",
-        "soil_moisture_percent",
-        "soil_electrical_conductivity_us_cm",
+        "sensor_nitrogen", "sensor_phosphorus", "sensor_potassium",
+        "soil_pH", "soil_moisture_percent", "soil_electrical_conductivity_us_cm",
         "soil_temperature_celsius",
     ]
-    feature_list = sensor_features + ['crop_type_encoded', 'NPK_ratio', 'N_P_ratio', 'N_K_ratio', 'pH_moisture', 'temp_moisture']
+    # IMPORTANT: The model ONLY expects these names
+    model_feature_list = sensor_features + [
+        'crop_type_encoded', 'NPK_ratio', 'N_P_ratio', 'N_K_ratio', 'pH_moisture', 'temp_moisture'
+    ]
     
-    X = df[feature_list]
+    X = df[model_feature_list]
     
     # Scale features
     X_scaled = scaler.transform(X)
@@ -134,11 +142,39 @@ if __name__ == "__main__":
             'crop_type': input_data.get('crop', 'Wheat')
         }
         
+        # Calculate Engineered Features for display
+        n_val = float(mapped_data['sensor_nitrogen'])
+        p_val = float(mapped_data['sensor_phosphorus'])
+        k_val = float(mapped_data['sensor_potassium'])
+        
+        # Calculate simplified N:P:K ratio string
+        min_nutrient = min(n_val, p_val, k_val)
+        if min_nutrient > 0:
+            npk_str = f"{n_val/min_nutrient:.1f}:{p_val/min_nutrient:.1f}:{k_val/min_nutrient:.1f}"
+        else:
+            npk_str = f"{n_val}:{p_val}:{k_val}"
+
+        total_npk_val = float(n_val + p_val + k_val + 1)
+        engineered_features = {
+            'N:P:K_Ratio': npk_str,
+            'N_proportion': float(n_val / total_npk_val),
+            'P_proportion': float(p_val / total_npk_val),
+            'K_proportion': float(k_val / total_npk_val),
+            'N_P_ratio': float(mapped_data['sensor_nitrogen'] / (mapped_data['sensor_phosphorus'] + 1)),
+            'N_K_ratio': float(mapped_data['sensor_nitrogen'] / (mapped_data['sensor_potassium'] + 1)),
+            'P_K_ratio': float(mapped_data['sensor_phosphorus'] / (mapped_data['sensor_potassium'] + 1)),
+            'pH_moisture': float(mapped_data['soil_pH'] * mapped_data['soil_moisture_percent']),
+            'temp_moisture': float(mapped_data['soil_temperature_celsius'] * mapped_data['soil_moisture_percent']),
+            'salinity_proxy': float(mapped_data['soil_electrical_conductivity_us_cm'] / (mapped_data['soil_moisture_percent'] + 1)),
+            'heat_stress_index': float(mapped_data['soil_temperature_celsius'] / (mapped_data['soil_moisture_percent'] + 1))
+        }
+        
         predictions = predict_fertilizer(mapped_data)
         
         print(json.dumps({
             'success': True,
-            'predictions': predictions
+            'predictions': predictions,
+            'features': engineered_features
         }))
         
     except Exception as e:

@@ -249,6 +249,7 @@ export default function Home() {
   const [fertilizerType, setFertilizerType] = useState(null); // 'organic' or 'inorganic'
   const [selectedCrop, setSelectedCrop] = useState(cropOptions[0].name);
   const [mlPredictions, setMlPredictions] = useState(null);
+  const [mlFeatures, setMlFeatures] = useState(null);
   const [mlLoading, setMlLoading] = useState(false);
   const [mlError, setMlError] = useState(null);
   const [isMapping, setIsMapping] = useState(false);
@@ -337,10 +338,12 @@ export default function Home() {
 
       if (result.success) {
         setMlPredictions(result.predictions);
+        setMlFeatures(result.features);
         setMlError(null);
       } else {
         setMlError(result.error || 'Failed to get ML predictions');
         setMlPredictions(null);
+        setMlFeatures(null);
       }
     } catch (error) {
       console.error('ML prediction error:', error);
@@ -372,10 +375,12 @@ export default function Home() {
         appointmentId: appointmentId,
         farmerId: appointmentDetails?.farmer?.id,
         plotId: appointmentDetails?.plot?.id,
-        mlPredictions: mlPredictions // Include ML predictions if available
+        mlPredictions: mlPredictions, // Include ML predictions if available
+        mlFeatures: mlFeatures // Include ML features if available
       }]);
       setForm({ day: '', crop: cropOptions[0].name, nitrogen: '', phosphorous: '', potassium: '', temperature: '', moisture: '', soil_ec: '', soil_humidity: '', ph: '', water_ph: '', email: '' });
       setMlPredictions(null); // Clear predictions after adding sample
+      setMlFeatures(null); // Clear features after adding sample
     } else {
       setSamples((prev) => [...prev, {
         day: form.day,
@@ -848,26 +853,30 @@ export default function Home() {
 
                         // --- Blynk Integration ---
                         const BLYNK_AUTH_TOKEN = "B0hPaF6btoV5MkLys9cAoOdhgORvwulN";
-                        let blynkState = "1"; // Default switch ON
-                        let blynkMoisture = "50"; // Default moisture
+                        let blynkState = "1"; // Default switch ON (V1)
+                        let blynkAltMode = "0"; // Default Alt Mode OFF (V2)
+                        let blynkMoisture = "50"; // Default moisture (V3)
 
                         try {
-                          console.log('📡 Fetching Blynk data (V1 Switch & V3 Moisture)...');
-                          const [resSwitch, resMoisture] = await Promise.all([
+                          console.log('📡 Fetching Blynk data (V1, V2, V3)...');
+                          const [resSwitch, resAltMode, resMoisture] = await Promise.all([
                             fetch(`https://blynk.cloud/external/api/get?token=${BLYNK_AUTH_TOKEN}&v1`),
+                            fetch(`https://blynk.cloud/external/api/get?token=${BLYNK_AUTH_TOKEN}&v2`),
                             fetch(`https://blynk.cloud/external/api/get?token=${BLYNK_AUTH_TOKEN}&v3`)
                           ]);
 
                           if (resSwitch.ok) blynkState = await resSwitch.text();
+                          if (resAltMode.ok) blynkAltMode = await resAltMode.text();
                           if (resMoisture.ok) blynkMoisture = await resMoisture.text();
 
-                          console.log(`Blynk: V1 Switch=${blynkState}, V3 Moisture=${blynkMoisture}%`);
+                          console.log(`Blynk: V1 Switch=${blynkState}, V2 AltMode=${blynkAltMode}, V3 Moisture=${blynkMoisture}%`);
                         } catch (err) {
                           console.error('❌ Error fetching Blynk status:', err);
                         }
 
-                        const isSystemActive = blynkState === "1";
-                        const manualMoisture = parseFloat(blynkMoisture) || 0;
+                        const isSystemActive = blynkState.includes("1");
+                        const isAltModeActive = blynkAltMode.includes("1");
+                        const manualMoisture = parseFloat(blynkMoisture.replace(/[\[\]"]/g, '')) || 0;
 
                         console.log('*** DEMO MODE: Generating sensors data... ***');
 
@@ -904,17 +913,26 @@ export default function Home() {
                             };
                           }
 
-                          console.log('*** BLYNK: System is ON. Generating full sensor data... ***');
+                          console.log(isAltModeActive ? '🌟 BLYNK: Alternative Range Mode (V2) is ON.' : '🌿 BLYNK: Normal Mode (V1) is ON.');
 
-                          // Generate data that fluctuates slightly around base values
-                          let N = BASE_N + Math.floor(Math.random() * 11) - 5;
-                          let P = BASE_P + Math.floor(Math.random() * 5) - 2;
-                          let K = BASE_K + Math.floor(Math.random() * 15) - 7;
+                          let N, P, K;
 
-                          if (form.day && form.day.startsWith('S')) {
-                            const delta = Math.floor(Math.random() * 2) + 5;
-                            N += delta;
-                            K -= delta;
+                          if (isAltModeActive) {
+                            // Specific ranges for Button 2 (V2)
+                            N = Math.floor(Math.random() * (258 - 250 + 1)) + 250; // 250-258
+                            P = Math.floor(Math.random() * (23 - 20 + 1)) + 20;     // 20-23
+                            K = Math.floor(Math.random() * (374 - 368 + 1)) + 368;  // 368-374
+                          } else {
+                            // Normal Mode Data Fluctuation
+                            N = BASE_N + Math.floor(Math.random() * 11) - 5;
+                            P = BASE_P + Math.floor(Math.random() * 5) - 2;
+                            K = BASE_K + Math.floor(Math.random() * 15) - 7;
+
+                            if (form.day && form.day.startsWith('S')) {
+                              const delta = Math.floor(Math.random() * 2) + 5;
+                              N += delta;
+                              K -= delta;
+                            }
                           }
 
                           const EC = BASE_EC + (Math.floor(Math.random() * 11 - 5) / 100.0);
@@ -1062,7 +1080,7 @@ export default function Home() {
             {mlPredictions && (
               <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                 <h3 className="text-lg font-bold text-purple-800 dark:text-purple-200 mb-3">🤖 ML Model Recommendations (kg/ha)</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   {Object.entries(mlPredictions).map(([fertilizer, amount]) => (
                     amount > 0 && (
                       <div key={fertilizer} className="bg-white dark:bg-gray-800 p-3 rounded border border-purple-200 dark:border-purple-700">
@@ -1072,6 +1090,21 @@ export default function Home() {
                     )
                   ))}
                 </div>
+
+                {mlFeatures && (
+                  <div className="mt-4">
+                    <h4 className="text-md font-bold text-indigo-700 dark:text-indigo-300 mb-2">⚙️ Feature Engineering Results</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      {Object.entries(mlFeatures).map(([feature, value]) => (
+                        <div key={feature} className="bg-indigo-50/50 dark:bg-indigo-900/10 p-2 rounded border border-indigo-100 dark:border-indigo-800/50">
+                          <div className="text-[10px] uppercase tracking-wider text-indigo-600 dark:text-indigo-400 font-bold">{feature.replace(/_/g, ' ')}</div>
+                          <div className="font-mono text-indigo-800 dark:text-indigo-200">{typeof value === 'number' ? value.toFixed(3) : value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {Object.values(mlPredictions).every(v => v === 0) && (
                   <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">No fertilizer recommendations based on current soil conditions.</p>
                 )}
@@ -1342,6 +1375,135 @@ export default function Home() {
             Comprehensive data visualization with time series, 3D effects, radar analysis, and distribution charts
           </p>
         </div>
+
+        {/* Physical Values Section */}
+        {finished && (
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-white/20 shadow-xl p-8 mb-12">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Physical Sensor Data Values</h2>
+              <p className="text-gray-600 dark:text-gray-300">Raw numerical values for all collected samples</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-center border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">Sample</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">Crop</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">N</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">P</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">K</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">pH</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">Temp</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">Mois</th>
+                    <th className="py-3 px-2 border border-gray-300 dark:border-gray-600">EC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {samples.filter(s => s.type === 'soil' || s.type === undefined).map((s, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600 font-bold">{s.day}</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.crop}</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.nitrogen}</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.phosphorous}</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.potassium}</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.ph}</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.temperature}°C</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.moisture}%</td>
+                      <td className="py-3 px-2 border border-gray-300 dark:border-gray-600">{s.soil_ec || 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Engineered Features Physical Values */}
+            <div className="mt-12 text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Engineered Feature Values</h2>
+              <p className="text-gray-600 dark:text-gray-300">Derived features used for machine learning models</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-center border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">Sample</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">N:P:K</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">N Prop</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">P Prop</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">K Prop</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">N/P</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">N/K</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">P/K</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">pH*M</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">T*M</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">Salinity</th>
+                    <th className="py-3 px-1 border border-gray-300 dark:border-gray-600">H-Stress</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {samples.filter(s => s.mlFeatures).map((s, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 font-mono text-indigo-700 dark:text-indigo-300">
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600 font-bold">{s.day}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600 whitespace-nowrap">{s.mlFeatures['N:P:K_Ratio']}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.N_proportion.toFixed(3)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.P_proportion.toFixed(3)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.K_proportion.toFixed(3)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.N_P_ratio.toFixed(2)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.N_K_ratio.toFixed(2)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.P_K_ratio.toFixed(2)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.pH_moisture.toFixed(2)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.temp_moisture.toFixed(2)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.salinity_proxy.toFixed(2)}</td>
+                      <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{s.mlFeatures.heat_stress_index.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  {samples.filter(s => !s.mlFeatures && (s.type === 'soil' || s.type === undefined)).map((s, idx) => {
+                    const total = s.nitrogen + s.phosphorous + s.potassium + 1;
+                    const minN = Math.min(s.nitrogen, s.phosphorous, s.potassium);
+                    const ratioStr = minN > 0 
+                      ? `${(s.nitrogen/minN).toFixed(1)}:${(s.phosphorous/minN).toFixed(1)}:${(s.potassium/minN).toFixed(1)}`
+                      : `${s.nitrogen}:${s.phosphorous}:${s.potassium}`;
+                    return (
+                      <tr key={`calc-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 font-mono text-gray-500">
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600 font-bold">{s.day}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600 whitespace-nowrap">{ratioStr}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.nitrogen / total).toFixed(3)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.phosphorous / total).toFixed(3)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.potassium / total).toFixed(3)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.nitrogen / (s.phosphorous + 1)).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.nitrogen / (s.potassium + 1)).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.phosphorous / (s.potassium + 1)).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.ph * s.moisture).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.temperature * s.moisture).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{( (s.soil_ec || 0) / (s.moisture + 1)).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.temperature / (s.moisture + 1) ).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-12 flex justify-center">
+              <Button
+                onClick={() => {
+                  setSamples([]);
+                  setFinished(false);
+                  setFertilizerType(null);
+                  setMlPredictions(null);
+                  setMlFeatures(null);
+                  setShowAppointmentStep(true);
+                  setAppointmentId('');
+                  setAppointmentDetails(null);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-10 rounded-2xl shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center gap-3"
+              >
+                🔄 Check Other Sample
+              </Button>
+            </div>
+          </div>
+        )}
+
         <ChartsContainer samples={samples} />
 
         {/* Fertilizer Analysis Section removed as per user request */}

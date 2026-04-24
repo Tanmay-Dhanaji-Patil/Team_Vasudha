@@ -113,15 +113,29 @@ print(f"✓ Encoded {len(le.classes_)} crop types: {list(le.classes_)}")
 
 # Create feature interactions (important for better predictions)
 print("\n--- Feature Engineering ---")
-df['NPK_ratio'] = df['sensor_nitrogen'] + df['sensor_phosphorus'] + df['sensor_potassium']
+total_npk = df['sensor_nitrogen'] + df['sensor_phosphorus'] + df['sensor_potassium'] + 1
+df['N_proportion'] = df['sensor_nitrogen'] / total_npk
+df['P_proportion'] = df['sensor_phosphorus'] / total_npk
+df['K_proportion'] = df['sensor_potassium'] / total_npk
+
 df['N_P_ratio'] = df['sensor_nitrogen'] / (df['sensor_phosphorus'] + 1)
 df['N_K_ratio'] = df['sensor_nitrogen'] / (df['sensor_potassium'] + 1)
+df['P_K_ratio'] = df['sensor_phosphorus'] / (df['sensor_potassium'] + 1)
 df['pH_moisture'] = df['soil_pH'] * df['soil_moisture_percent']
 df['temp_moisture'] = df['soil_temperature_celsius'] * df['soil_moisture_percent']
-print("✓ Created 5 engineered features")
+
+df['salinity_proxy'] = df['soil_electrical_conductivity_us_cm'] / (df['soil_moisture_percent'] + 1)
+df['heat_stress_index'] = df['soil_temperature_celsius'] / (df['soil_moisture_percent'] + 1)
+print("✓ Created 10 engineered features")
 
 # Prepare features and targets
-feature_list = sensor_features + ['crop_type_encoded', 'NPK_ratio', 'N_P_ratio', 'N_K_ratio', 'pH_moisture', 'temp_moisture']
+feature_list = sensor_features + [
+    'crop_type_encoded', 
+    'N_proportion', 'P_proportion', 'K_proportion', 
+    'N_P_ratio', 'N_K_ratio', 'P_K_ratio',
+    'pH_moisture', 'temp_moisture',
+    'salinity_proxy', 'heat_stress_index'
+]
 X = df[feature_list]
 y = df[target_features]
 

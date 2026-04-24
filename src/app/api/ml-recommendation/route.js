@@ -161,6 +161,7 @@ export async function POST(request) {
           resolve(NextResponse.json({
             success: true,
             predictions: result.predictions,
+            features: result.features,
             input: inputData
           }));
         } else {
