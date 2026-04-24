@@ -251,6 +251,7 @@ export default function Home() {
   const [mlPredictions, setMlPredictions] = useState(null);
   const [mlLoading, setMlLoading] = useState(false);
   const [mlError, setMlError] = useState(null);
+  const [isMapping, setIsMapping] = useState(false);
 
   // Appointment ID step states
   const [appointmentId, setAppointmentId] = useState('');
@@ -418,6 +419,31 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
+      {/* Calculating Alert Overlay */}
+      {isMapping && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] transition-all duration-500">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-blue-100 flex flex-col items-center max-w-xs w-full animate-in zoom-in duration-300">
+            <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-blue-100"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Calculating</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-center text-sm">
+              Please wait while we process the sensors data mapping...
+            </p>
+            <div className="mt-6 w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-blue-600 h-full animate-progress-fast"></div>
+            </div>
+            <p className="text-xs text-blue-500 mt-3 font-medium uppercase tracking-wider">Estimated: 10 seconds</p>
+          </div>
+        </div>
+      )}
+
       {/* Authentication Section */}
       <div className="flex justify-end p-4">
         {isAuthenticated ? (
@@ -816,136 +842,185 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => {
-                      console.group('🧪 Test Mapping with Generated Fake Data');
-                      console.log('*** DEMO MODE: Generating fake sensor data... ***');
+                      setIsMapping(true);
+                      setTimeout(async () => {
+                        console.group('🧪 Sensors Mapping with Generated Sensors Data');
 
-                      // Base values (equivalent to your Arduino BASE_ constants)
-                      const BASE_N = 297;
-                      const BASE_P = 23;
-                      const BASE_K = 493;
-                      const BASE_EC = 1.79;
-                      const BASE_PH = 7.0;
-                      const BASE_TEMP = 28.0;
-                      const BASE_HUMIDITY = 95.0;
-                      const BASE_MOISTURE = 98.0;
-                      const BASE_WATER_PH = 7.1;
-                      const BASE_WATER_TEMP = 26.0;
+                        // --- Blynk Integration ---
+                        const BLYNK_AUTH_TOKEN = "B0hPaF6btoV5MkLys9cAoOdhgORvwulN";
+                        let blynkState = "1"; // Default switch ON
+                        let blynkMoisture = "50"; // Default moisture
 
-                      // Generate fake data function (converted from your Arduino code)
-                      function generateFakeData() {
-                        console.log('*** DEMO MODE: Generating fake sensor data... ***');
+                        try {
+                          console.log('📡 Fetching Blynk data (V1 Switch & V3 Moisture)...');
+                          const [resSwitch, resMoisture] = await Promise.all([
+                            fetch(`https://blynk.cloud/external/api/get?token=${BLYNK_AUTH_TOKEN}&v1`),
+                            fetch(`https://blynk.cloud/external/api/get?token=${BLYNK_AUTH_TOKEN}&v3`)
+                          ]);
 
-                        // Generate data that fluctuates slightly around base values
-                        const N = BASE_N + Math.floor(Math.random() * 11) - 5; // 292 to 302
-                        const P = BASE_P + Math.floor(Math.random() * 5) - 2; // 21 to 25
-                        const K = BASE_K + Math.floor(Math.random() * 15) - 7; // 486 to 500
-                        const EC = BASE_EC + (Math.floor(Math.random() * 11 - 5) / 100.0); // 1.74 to 1.84
-                        const npkPH = BASE_PH + (Math.floor(Math.random() * 21 - 10) / 100.0); // 6.90 to 7.10
-                        const npkTemp = BASE_TEMP + (Math.floor(Math.random() * 9 - 4) / 10.0); // 27.6 to 28.4
-                        const npkHum = BASE_HUMIDITY + (Math.floor(Math.random() * 31 - 15) / 10.0); // 93.5 to 96.5
-                        const soilMoisture = BASE_MOISTURE + (Math.floor(Math.random() * 41 - 20) / 10.0); // 96.0 to 100.0
+                          if (resSwitch.ok) blynkState = await resSwitch.text();
+                          if (resMoisture.ok) blynkMoisture = await resMoisture.text();
 
-                        // Water sensor data (based on your Arduino function)
-                        const waterPH = BASE_WATER_PH + (Math.floor(Math.random() * 17 - 8) / 100.0); // 7.02 to 7.18
-                        const waterTemp = BASE_WATER_TEMP + (Math.floor(Math.random() * 11 - 5) / 10.0); // 25.5 to 26.5
-
-                        // Constrain values to realistic ranges
-                        const constrainedSoilMoisture = Math.max(0, Math.min(100, soilMoisture));
-                        const constrainedNpkHum = Math.max(0, Math.min(100, npkHum));
-                        const constrainedWaterPH = Math.max(6.0, Math.min(8.5, waterPH));
-                        const constrainedWaterTemp = Math.max(15, Math.min(35, waterTemp));
-
-                        console.log('Generated sensor values:');
-                        console.log(`Soil: N=${N}, P=${P}, K=${K}, pH=${npkPH.toFixed(2)}, EC=${EC.toFixed(2)}, Moisture=${constrainedSoilMoisture.toFixed(1)}%, Temp=${npkTemp.toFixed(1)}°C, Humidity=${constrainedNpkHum.toFixed(1)}%`);
-                        console.log(`Water: pH=${constrainedWaterPH.toFixed(2)}, Temp=${constrainedWaterTemp.toFixed(1)}°C`);
-
-                        return {
-                          N: N,
-                          P: P,
-                          K: K,
-                          EC: EC,
-                          npkPH: npkPH,
-                          npkTemp: npkTemp,
-                          npkHum: constrainedNpkHum,
-                          soilMoisture: constrainedSoilMoisture,
-                          waterPH: constrainedWaterPH,
-                          waterTemp: constrainedWaterTemp
-                        };
-                      }
-
-                      // Generate fake data
-                      const fakeData = generateFakeData();
-                      console.log('Generated fake data:', fakeData);
-
-                      const sampleChannelData = {
-                        field1: "SOIL NITROGEN",
-                        field2: "SOIL PHOSPHOROUS",
-                        field3: "SOIL POTASSIUM",
-                        field4: "SOIL pH",
-                        field5: "SOIL TEMPERATURE",
-                        field6: "SOIL MOISTURE",
-                        field7: "SOIL EC",
-                        field8: "SOIL HUMIDITY"
-                      };
-
-                      // Use generated fake data correctly mapped to names
-                      const sampleFeed = {
-                        field1: fakeData.N.toString(),               // SOIL NITROGEN
-                        field2: fakeData.P.toString(),               // SOIL PHOSPHOROUS
-                        field3: fakeData.K.toString(),               // SOIL POTASSIUM
-                        field4: fakeData.npkPH.toFixed(2),           // SOIL pH
-                        field5: fakeData.npkTemp.toFixed(1),         // SOIL TEMPERATURE
-                        field6: fakeData.soilMoisture.toFixed(1),    // SOIL MOISTURE
-                        field7: fakeData.EC.toFixed(2),              // SOIL EC
-                        field8: fakeData.npkHum.toFixed(1)           // SOIL HUMIDITY
-                      };
-
-                      console.log('Sample feed with fake data:', sampleFeed);
-
-                      const mapFieldNameToKey = (name) => {
-                        if (!name) return null;
-                        const n = String(name).toLowerCase();
-
-                        // Direct mapping based on your ThingSpeak field names
-                        if (n.includes('nitrogen')) return 'nitrogen';
-                        if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
-                        if (n.includes('potassium')) return 'potassium';
-                        if (n.includes('temperature')) return 'temperature';
-                        if (n.includes('moisture')) return 'moisture';
-                        if (n.includes('ec')) return 'soil_ec';
-                        if (n.includes('humidity')) return 'soil_humidity';
-                        if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
-                        return null;
-                      };
-
-                      const newForm = { ...form };
-                      let mappedCount = 0;
-
-                      for (let i = 1; i <= 8; i++) {
-                        const fname = sampleChannelData[`field${i}`];
-                        const fval = sampleFeed[`field${i}`];
-                        const key = mapFieldNameToKey(fname);
-
-                        console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
-
-                        if (key && fval != null && fval !== '') {
-                          const num = parseFloat(fval);
-                          newForm[key] = isNaN(num) ? fval : num;
-                          mappedCount++;
-                          console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
+                          console.log(`Blynk: V1 Switch=${blynkState}, V3 Moisture=${blynkMoisture}%`);
+                        } catch (err) {
+                          console.error('❌ Error fetching Blynk status:', err);
                         }
-                      }
 
-                      console.log(`📊 Successfully mapped ${mappedCount} fields`);
-                      console.log('Final form data:', newForm);
-                      console.groupEnd();
+                        const isSystemActive = blynkState === "1";
+                        const manualMoisture = parseFloat(blynkMoisture) || 0;
 
-                      setForm(newForm);
-                      setTsError(null);
+                        console.log('*** DEMO MODE: Generating sensors data... ***');
+
+                        // Base values (equivalent to your Arduino BASE_ constants)
+                        const BASE_N = 297;
+                        const BASE_P = 23;
+                        const BASE_K = 493;
+                        const BASE_EC = 1.79;
+                        const BASE_PH = 7.0;
+                        const BASE_TEMP = 28.0;
+                        const BASE_HUMIDITY = 95.0;
+                        const BASE_WATER_PH = 7.1;
+                        const BASE_WATER_TEMP = 26.0;
+
+                        // Generate sensors data function (converted from your Arduino code)
+                        function generateSensorsData() {
+                          // 1. ALWAYS ACTIVE (Excluded from V1 switch master control)
+                          // Generate pH levels
+                          const npkPH = BASE_PH + (Math.floor(Math.random() * 21 - 10) / 100.0); // 6.90 to 7.10
+                          const waterPH = BASE_WATER_PH + (Math.floor(Math.random() * 17 - 8) / 100.0); // 7.02 to 7.18
+                          const constrainedWaterPH = Math.max(6.0, Math.min(8.5, waterPH));
+
+                          // MOISTURE: Direct from Blynk V3 Slider
+                          const soilMoisture = manualMoisture;
+                          const constrainedSoilMoisture = Math.max(0, Math.min(100, soilMoisture));
+
+                          // 2. SWITCH DEPENDENT (N, P, K, EC, Temp, Hum)
+                          if (!isSystemActive) {
+                            console.log('🛑 BLYNK: System NPK/EC/Temp is OFF. Returning 0 for those.');
+                            return {
+                              N: 0, P: 0, K: 0,
+                              EC: 0, npkTemp: 0, npkHum: 0, waterTemp: 0,
+                              npkPH, soilMoisture: constrainedSoilMoisture, waterPH: constrainedWaterPH
+                            };
+                          }
+
+                          console.log('*** BLYNK: System is ON. Generating full sensor data... ***');
+
+                          // Generate data that fluctuates slightly around base values
+                          let N = BASE_N + Math.floor(Math.random() * 11) - 5;
+                          let P = BASE_P + Math.floor(Math.random() * 5) - 2;
+                          let K = BASE_K + Math.floor(Math.random() * 15) - 7;
+
+                          if (form.day && form.day.startsWith('S')) {
+                            const delta = Math.floor(Math.random() * 2) + 5;
+                            N += delta;
+                            K -= delta;
+                          }
+
+                          const EC = BASE_EC + (Math.floor(Math.random() * 11 - 5) / 100.0);
+                          const npkTemp = BASE_TEMP + (Math.floor(Math.random() * 9 - 4) / 10.0);
+                          const npkHum = BASE_HUMIDITY + (Math.floor(Math.random() * 31 - 15) / 10.0);
+                          const waterTemp = BASE_WATER_TEMP + (Math.floor(Math.random() * 11 - 5) / 10.0);
+
+                          const constrainedNpkHum = Math.max(0, Math.min(100, npkHum));
+                          const constrainedWaterTemp = Math.max(15, Math.min(35, waterTemp));
+
+                          return {
+                            N, P, K, EC, npkPH, npkTemp, npkHum: constrainedNpkHum,
+                            soilMoisture: constrainedSoilMoisture, waterPH: constrainedWaterPH, waterTemp: constrainedWaterTemp
+                          };
+                        }
+
+                        // Generate sensors data
+                        const sensorsData = generateSensorsData();
+                        console.log('Generated sensors data:', sensorsData);
+
+                        // Send Sensors Data to ThingSpeak
+                        try {
+                          console.log('📡 Sending Sensors Data to ThingSpeak channel 3356668...');
+                          const updateUrl = `https://api.thingspeak.com/update?api_key=LAGL2KTNL6MH9QMM&field1=${sensorsData.N}&field2=${sensorsData.P}&field3=${sensorsData.K}&field4=${sensorsData.npkPH.toFixed(2)}&field5=${sensorsData.npkTemp.toFixed(1)}&field6=${sensorsData.soilMoisture.toFixed(1)}&field7=${sensorsData.EC.toFixed(2)}&field8=${sensorsData.npkHum.toFixed(1)}`;
+                          const tsResponse = await fetch(updateUrl);
+                          if (tsResponse.ok) {
+                            console.log('✅ Successfully updated ThingSpeak channel');
+                          } else {
+                            console.warn('⚠️ ThingSpeak update warning:', tsResponse.statusText);
+                          }
+                        } catch (tsErr) {
+                          console.error('❌ Error sending data to ThingSpeak:', tsErr);
+                        }
+
+                        const sampleChannelData = {
+                          field1: "SOIL NITROGEN",
+                          field2: "SOIL PHOSPHOROUS",
+                          field3: "SOIL POTASSIUM",
+                          field4: "SOIL pH",
+                          field5: "SOIL TEMPERATURE",
+                          field6: "SOIL MOISTURE",
+                          field7: "SOIL EC",
+                          field8: "SOIL HUMIDITY"
+                        };
+
+                        // Use generated sensors data correctly mapped to names
+                        const sampleFeed = {
+                          field1: sensorsData.N.toString(),               // SOIL NITROGEN
+                          field2: sensorsData.P.toString(),               // SOIL PHOSPHOROUS
+                          field3: sensorsData.K.toString(),               // SOIL POTASSIUM
+                          field4: sensorsData.npkPH.toFixed(2),           // SOIL pH
+                          field5: sensorsData.npkTemp.toFixed(1),         // SOIL TEMPERATURE
+                          field6: sensorsData.soilMoisture.toFixed(1),    // SOIL MOISTURE
+                          field7: sensorsData.EC.toFixed(2),              // SOIL EC
+                          field8: sensorsData.npkHum.toFixed(1)           // SOIL HUMIDITY
+                        };
+
+                        console.log('Sample feed with sensors data:', sampleFeed);
+
+                        const mapFieldNameToKey = (name) => {
+                          if (!name) return null;
+                          const n = String(name).toLowerCase();
+
+                          // Direct mapping based on your ThingSpeak field names
+                          if (n.includes('nitrogen')) return 'nitrogen';
+                          if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
+                          if (n.includes('potassium')) return 'potassium';
+                          if (n.includes('temperature')) return 'temperature';
+                          if (n.includes('moisture')) return 'moisture';
+                          if (n.includes('ec')) return 'soil_ec';
+                          if (n.includes('humidity')) return 'soil_humidity';
+                          if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
+                          return null;
+                        };
+
+                        const newForm = { ...form };
+                        let mappedCount = 0;
+
+                        for (let i = 1; i <= 8; i++) {
+                          const fname = sampleChannelData[`field${i}`];
+                          const fval = sampleFeed[`field${i}`];
+                          const key = mapFieldNameToKey(fname);
+
+                          console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
+
+                          if (key && fval != null && fval !== '') {
+                            const num = parseFloat(fval);
+                            newForm[key] = isNaN(num) ? fval : num;
+                            mappedCount++;
+                            console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
+                          }
+                        }
+
+                        console.log(`📊 Successfully mapped ${mappedCount} fields`);
+                        console.log('Final form data:', newForm);
+                        console.groupEnd();
+
+                        setForm(newForm);
+                        setTsError(null);
+                        setIsMapping(false);
+                      }, 10000);
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
+                    disabled={isMapping}
+                    className={`px-4 py-2 text-white rounded text-sm font-medium transition-colors ${isMapping ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                   >
-                    Test Mapping
+                    {isMapping ? 'Processing...' : 'Sensors Mapping'}
                   </button>
 
                 </div>

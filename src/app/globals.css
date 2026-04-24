@@ -548,3 +548,12 @@ html {
 .input-error + .floating-label {
   color: #ef4444;
 }
+
+@keyframes progress-fast {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.animate-progress-fast {
+  animation: progress-fast 10s linear forwards;
+}
