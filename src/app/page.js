@@ -242,6 +242,7 @@ export default function Home() {
   // inputMode: one of 'manual-soil' | 'manual-water' | 'thingspeak-soil' | 'thingspeak-water'
   const [inputMode, setInputMode] = useState('manual-soil');
   const [tsChannelId, setTsChannelId] = useState('');
+  const [tsReadKey, setTsReadKey] = useState('');
   const [tsLoading, setTsLoading] = useState(false);
   const [tsError, setTsError] = useState(null);
   const [finished, setFinished] = useState(false);
@@ -625,6 +626,12 @@ export default function Home() {
                     onChange={(e) => setTsChannelId(e.target.value)}
                     className="border rounded px-3 py-2 flex-1"
                   />
+                  <input
+                    placeholder="Read API Key (if private)"
+                    value={tsReadKey}
+                    onChange={(e) => setTsReadKey(e.target.value)}
+                    className="border rounded px-3 py-2 flex-1"
+                  />
                   <button
                     type="button"
                     onClick={async () => {
@@ -640,7 +647,7 @@ export default function Home() {
                         // First try client-side public fetch (fast path)
                         try {
                           console.log('📡 Attempting client-side fetch...');
-                          const channelUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}.json`;
+                          const channelUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}.json${tsReadKey ? `?api_key=${encodeURIComponent(tsReadKey)}` : ''}`;
                           console.log('Channel URL:', channelUrl);
 
                           const chRes = await fetch(channelUrl);
@@ -650,7 +657,7 @@ export default function Home() {
                           channelData = await chRes.json();
                           console.log('Channel data received:', channelData);
 
-                          const feedUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}/feeds.json?results=1`;
+                          const feedUrl = `https://api.thingspeak.com/channels/${encodeURIComponent(tsChannelId)}/feeds.json?results=1${tsReadKey ? `&api_key=${encodeURIComponent(tsReadKey)}` : ''}`;
                           console.log('Feed URL:', feedUrl);
 
                           const feedRes = await fetch(feedUrl);
@@ -670,7 +677,7 @@ export default function Home() {
                           console.log('❌ Client-side fetch failed:', clientErr?.message ?? clientErr);
                           console.log('🔄 Falling back to server-side fetch...');
 
-                          const serverUrl = `/api/thingspeak?id=${encodeURIComponent(tsChannelId)}&fetch=1`;
+                          const serverUrl = `/api/thingspeak?id=${encodeURIComponent(tsChannelId)}&fetch=1${tsReadKey ? `&api_key=${encodeURIComponent(tsReadKey)}` : ''}`;
                           console.log('Server URL:', serverUrl);
 
                           const apiRes = await fetch(serverUrl);
@@ -723,15 +730,13 @@ export default function Home() {
                           console.log('🧪 Using sample data for testing:', { channelData, last });
                         }
 
-                        // Map ThingSpeak field names to our form keys based on Arduino code structure
-                        const currentParam = inputMode && inputMode.endsWith('water') ? 'water' : 'soil';
-                        const mapFieldNameToKey = (name) => {
-                          if (!name) return null;
-                          const n = String(name).toLowerCase();
-
-
-
-                          // Direct mapping based on your ThingSpeak field names
+                        const isWaterMode = inputMode === 'thingspeak-water';
+                        
+                        const mapFieldNameToKey = (name, fieldNum) => {
+                          if (!name && !fieldNum) return null;
+                          const n = String(name || '').toLowerCase();
+                          
+                          // 1. Try to map by descriptive name (if user set labels in ThingSpeak)
                           if (n.includes('nitrogen')) return 'nitrogen';
                           if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
                           if (n.includes('potassium')) return 'potassium';
@@ -739,101 +744,67 @@ export default function Home() {
                           if (n.includes('moisture')) return 'moisture';
                           if (n.includes('ec')) return 'soil_ec';
                           if (n.includes('humidity')) return 'soil_humidity';
-                          if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
+                          
+                          // Handle pH mapping differently based on mode
+                          if (n.includes('ph') && !n.includes('phosphorous')) {
+                            return isWaterMode ? 'water_ph' : 'ph';
+                          }
 
+                          // 2. Fallback to strict field numbers
+                          if (isWaterMode) {
+                            // In Water Channel, Field 1 is always Water pH
+                            if (fieldNum === 'field1') return 'water_ph';
+                          } else {
+                            // Standard Soil Channel mapping (matches ESP32)
+                            const fieldMap = {
+                              'field1': 'nitrogen',
+                              'field2': 'phosphorous',
+                              'field3': 'potassium',
+                              'field4': 'ph',
+                              'field5': 'temperature',
+                              'field6': 'moisture',
+                              'field7': 'soil_ec',
+                              'field8': 'soil_humidity'
+                            };
+                            if (fieldNum && fieldMap[fieldNum]) return fieldMap[fieldNum];
+                          }
                           return null;
                         };
 
                         const newForm = { ...form };
+                        const dataFeed = last || (channelData.feeds && channelData.feeds[0]);
 
-                        // Enhanced debugging and data mapping
-                        console.group('🔍 ThingSpeak Data Analysis');
-                        console.log('Channel Data:', channelData);
-                        console.log('Last Feed:', last);
-                        console.log('Channel Fields:', {
-                          field1: channelData.field1,
-                          field2: channelData.field2,
-                          field3: channelData.field3,
-                          field4: channelData.field4,
-                          field5: channelData.field5,
-                          field6: channelData.field6,
-                          field7: channelData.field7,
-                          field8: channelData.field8
-                        });
-
-                        if (last) {
-                          console.log('Feed Values:', {
-                            field1: last.field1,
-                            field2: last.field2,
-                            field3: last.field3,
-                            field4: last.field4,
-                            field5: last.field5,
-                            field6: last.field6,
-                            field7: last.field7,
-                            field8: last.field8
-                          });
-
+                        if (dataFeed) {
+                          console.log('🔍 Analyzing feed data:', dataFeed);
                           let mappedCount = 0;
+                          
                           for (let i = 1; i <= 8; i++) {
-                            const fname = channelData[`field${i}`];
-                            const fval = last[`field${i}`];
-                            const key = mapFieldNameToKey(fname);
+                            const fieldKey = `field${i}`;
+                            const label = channelData[fieldKey];
+                            const value = dataFeed[fieldKey];
+                            const key = mapFieldNameToKey(label, fieldKey);
 
-                            console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
-
-                            if (key && fval != null && fval !== '') {
-                              const num = parseFloat(fval);
-                              newForm[key] = isNaN(num) ? fval : num;
+                            if (key && value != null && value !== '') {
+                              const num = parseFloat(value);
+                              newForm[key] = isNaN(num) ? value : num;
                               mappedCount++;
-                              console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
-                            } else if (fname) {
-                              console.log(`❌ Skipped: ${fname} (${fval}) - ${!key ? 'no mapping' : 'empty value'}`);
+                              console.log(`✅ Mapped ${fieldKey} (${label}) to ${key}: ${value}`);
                             }
                           }
 
+                          if (mappedCount > 0 && dataFeed.created_at) {
+                            newForm.day = dataFeed.created_at;
+                          }
+                          
                           console.log(`📊 Successfully mapped ${mappedCount} fields`);
-
-                          // Only set day if we have mapped data and a valid timestamp
-                          if (mappedCount > 0 && last.created_at) {
-                            newForm.day = last.created_at;
-                            console.log(`📅 Set timestamp: ${last.created_at}`);
-                          }
+                          setForm(newForm);
+                          setTsError(null);
                         } else {
-                          console.log('❌ No feed data available');
-
-                          // Fallback: Check if data is in channelData.feeds
-                          if (channelData.feeds && Array.isArray(channelData.feeds) && channelData.feeds.length > 0) {
-                            console.log('🔄 Trying fallback: using channelData.feeds');
-                            const fallbackFeed = channelData.feeds[0];
-
-                            let mappedCount = 0;
-                            for (let i = 1; i <= 8; i++) {
-                              const fname = channelData[`field${i}`];
-                              const fval = fallbackFeed[`field${i}`];
-                              const key = mapFieldNameToKey(fname);
-
-                              if (key && fval != null && fval !== '') {
-                                const num = parseFloat(fval);
-                                newForm[key] = isNaN(num) ? fval : num;
-                                mappedCount++;
-                                console.log(`✅ Fallback mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
-                              }
-                            }
-
-                            if (mappedCount > 0 && fallbackFeed.created_at) {
-                              newForm.day = fallbackFeed.created_at;
-                              console.log(`📅 Fallback timestamp: ${fallbackFeed.created_at}`);
-                            }
-                          }
+                          throw new Error('No data feeds found in this channel.');
                         }
-
-                        console.log('Final form data:', newForm);
-                        console.groupEnd();
-
-                        setForm(newForm);
                       } catch (err) {
                         console.error('ThingSpeak fetch/fill error:', err);
-                        setTsError(String(err.message ?? err));
+                        setTsError(err.message || String(err));
                       } finally {
                         setTsLoading(false);
                       }
@@ -905,11 +876,11 @@ export default function Home() {
 
                           // 2. SWITCH DEPENDENT (N, P, K, EC, Temp, Hum)
                           if (!isSystemActive) {
-                            console.log('🛑 BLYNK: System NPK/EC/Temp is OFF. Returning 0 for those.');
+                            console.log('🛑 BLYNK: System is OFF. Returning 0 for Nutrients and pH.');
                             return {
                               N: 0, P: 0, K: 0,
                               EC: 0, npkTemp: 0, npkHum: 0, waterTemp: 0,
-                              npkPH, soilMoisture: constrainedSoilMoisture, waterPH: constrainedWaterPH
+                              npkPH: 0, soilMoisture: constrainedSoilMoisture, waterPH: constrainedWaterPH
                             };
                           }
 
@@ -992,11 +963,11 @@ export default function Home() {
 
                         console.log('Sample feed with sensors data:', sampleFeed);
 
-                        const mapFieldNameToKey = (name) => {
-                          if (!name) return null;
-                          const n = String(name).toLowerCase();
-
-                          // Direct mapping based on your ThingSpeak field names
+                        const mapFieldNameToKey = (name, fieldNum) => {
+                          if (!name && !fieldNum) return null;
+                          const n = String(name || '').toLowerCase();
+                          
+                          // 1. Try to map by descriptive name (if user set labels in ThingSpeak)
                           if (n.includes('nitrogen')) return 'nitrogen';
                           if (n.includes('phosphorous') || n.includes('phosphorus')) return 'phosphorous';
                           if (n.includes('potassium')) return 'potassium';
@@ -1005,31 +976,54 @@ export default function Home() {
                           if (n.includes('ec')) return 'soil_ec';
                           if (n.includes('humidity')) return 'soil_humidity';
                           if (n.includes('ph') && !n.includes('phosphorous')) return 'ph';
+
+                          // 2. Fallback to strict field numbers (Matching the ESP32 order we just set)
+                          const fieldMap = {
+                            'field1': 'nitrogen',
+                            'field2': 'phosphorous',
+                            'field3': 'potassium',
+                            'field4': 'ph',
+                            'field5': 'temperature',
+                            'field6': 'moisture',
+                            'field7': 'soil_ec',
+                            'field8': 'soil_humidity'
+                          };
+                          
+                          if (fieldNum && fieldMap[fieldNum]) return fieldMap[fieldNum];
                           return null;
                         };
 
                         const newForm = { ...form };
                         let mappedCount = 0;
 
+                        // Field labels from ThingSpeak (to check for descriptive names)
+                        const fieldLabels = {
+                          field1: channelData.field1,
+                          field2: channelData.field2,
+                          field3: channelData.field3,
+                          field4: channelData.field4,
+                          field5: channelData.field5,
+                          field6: channelData.field6,
+                          field7: channelData.field7,
+                          field8: channelData.field8
+                        };
+
                         for (let i = 1; i <= 8; i++) {
-                          const fname = sampleChannelData[`field${i}`];
-                          const fval = sampleFeed[`field${i}`];
-                          const key = mapFieldNameToKey(fname);
+                          const fieldKey = `field${i}`;
+                          const label = fieldLabels[fieldKey];
+                          const value = last[fieldKey];
+                          const key = mapFieldNameToKey(label, fieldKey);
 
-                          console.log(`Field ${i}: "${fname}" = "${fval}" → ${key}`);
+                          console.log(`Mapping ${fieldKey}: "${label}" = "${value}" → key: ${key}`);
 
-                          if (key && fval != null && fval !== '') {
-                            const num = parseFloat(fval);
-                            newForm[key] = isNaN(num) ? fval : num;
+                          if (key && value != null && value !== '') {
+                            const num = parseFloat(value);
+                            newForm[key] = isNaN(num) ? value : num;
                             mappedCount++;
-                            console.log(`✅ Mapped: ${fname} (${fval}) → ${key}: ${newForm[key]}`);
                           }
                         }
 
                         console.log(`📊 Successfully mapped ${mappedCount} fields`);
-                        console.log('Final form data:', newForm);
-                        console.groupEnd();
-
                         setForm(newForm);
                         setTsError(null);
                         setIsMapping(false);
@@ -1459,8 +1453,8 @@ export default function Home() {
                   {samples.filter(s => !s.mlFeatures && (s.type === 'soil' || s.type === undefined)).map((s, idx) => {
                     const total = s.nitrogen + s.phosphorous + s.potassium + 1;
                     const minN = Math.min(s.nitrogen, s.phosphorous, s.potassium);
-                    const ratioStr = minN > 0 
-                      ? `${(s.nitrogen/minN).toFixed(1)}:${(s.phosphorous/minN).toFixed(1)}:${(s.potassium/minN).toFixed(1)}`
+                    const ratioStr = minN > 0
+                      ? `${(s.nitrogen / minN).toFixed(1)}:${(s.phosphorous / minN).toFixed(1)}:${(s.potassium / minN).toFixed(1)}`
                       : `${s.nitrogen}:${s.phosphorous}:${s.potassium}`;
                     return (
                       <tr key={`calc-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 font-mono text-gray-500">
@@ -1474,8 +1468,8 @@ export default function Home() {
                         <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.phosphorous / (s.potassium + 1)).toFixed(2)}</td>
                         <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.ph * s.moisture).toFixed(2)}</td>
                         <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.temperature * s.moisture).toFixed(2)}</td>
-                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{( (s.soil_ec || 0) / (s.moisture + 1)).toFixed(2)}</td>
-                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.temperature / (s.moisture + 1) ).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{((s.soil_ec || 0) / (s.moisture + 1)).toFixed(2)}</td>
+                        <td className="py-3 px-1 border border-gray-300 dark:border-gray-600">{(s.temperature / (s.moisture + 1)).toFixed(2)}</td>
                       </tr>
                     );
                   })}
